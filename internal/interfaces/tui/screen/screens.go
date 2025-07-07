@@ -9,9 +9,7 @@ import (
 // Placeholder implementations for other screens
 
 
-func NewCreditCardsModel(ctx context.Context, creditCardUC *usecase.CreditCardUseCase, accountUC *usecase.AccountUseCase) tea.Model {
-	return &simpleModel{title: "Credit Cards", content: "Credit card management screen - Coming soon!"}
-}
+// NewCreditCardsModel is now implemented in credit_cards.go
 
 func NewBillsModel(ctx context.Context, billUC *usecase.BillUseCase) tea.Model {
 	return &simpleModel{title: "Bills", content: "Bill management screen - Coming soon!"}
