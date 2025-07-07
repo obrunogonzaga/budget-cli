@@ -17,9 +17,7 @@ func NewBillsModel(ctx context.Context, billUC *usecase.BillUseCase) tea.Model {
 	return &simpleModel{title: "Bills", content: "Bill management screen - Coming soon!"}
 }
 
-func NewTransactionsModel(ctx context.Context, txnUC *usecase.TransactionUseCase, accountUC *usecase.AccountUseCase, cardUC *usecase.CreditCardUseCase, billUC *usecase.BillUseCase, personUC *usecase.PersonUseCase) tea.Model {
-	return &simpleModel{title: "Transactions", content: "Transaction management screen - Coming soon!"}
-}
+// NewTransactionsModel is now implemented in transactions.go
 
 func NewPeopleModel(ctx context.Context, personUC *usecase.PersonUseCase) tea.Model {
 	return &simpleModel{title: "People", content: "People management screen - Coming soon!"}
