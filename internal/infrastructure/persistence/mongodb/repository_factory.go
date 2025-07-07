@@ -387,6 +387,11 @@ func (r *transactionRepository) FindByBillID(ctx context.Context, billID uuid.UU
 	return r.findByFilter(ctx, filter)
 }
 
+func (r *transactionRepository) FindByCreditCardInvoiceID(ctx context.Context, invoiceID uuid.UUID) ([]*entity.Transaction, error) {
+	filter := bson.M{"credit_card_invoice_uuid": invoiceID.String()}
+	return r.findByFilter(ctx, filter)
+}
+
 func (r *transactionRepository) FindByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*entity.Transaction, error) {
 	filter := bson.M{
 		"date": bson.M{

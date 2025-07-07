@@ -176,6 +176,11 @@ func TransactionToModel(transaction *entity.Transaction) TransactionModel {
 		model.BillUUID = &billUUID
 	}
 
+	if transaction.CreditCardInvoiceID != nil {
+		invoiceUUID := transaction.CreditCardInvoiceID.String()
+		model.CreditCardInvoiceUUID = &invoiceUUID
+	}
+
 	for i, shared := range transaction.SharedWith {
 		model.SharedWith[i] = SharedExpenseModel{
 			PersonUUID: shared.PersonID.String(),
@@ -229,6 +234,14 @@ func TransactionFromModel(model TransactionModel) (*entity.Transaction, error) {
 		transaction.BillID = &billID
 	}
 
+	if model.CreditCardInvoiceUUID != nil {
+		invoiceID, err := uuid.Parse(*model.CreditCardInvoiceUUID)
+		if err != nil {
+			return nil, err
+		}
+		transaction.CreditCardInvoiceID = &invoiceID
+	}
+
 	for i, shared := range model.SharedWith {
 		personID, err := uuid.Parse(shared.PersonUUID)
 		if err != nil {
@@ -242,4 +255,66 @@ func TransactionFromModel(model TransactionModel) (*entity.Transaction, error) {
 	}
 
 	return transaction, nil
+}
+
+func CreditCardInvoiceToModel(invoice *entity.CreditCardInvoice) CreditCardInvoiceModel {
+	transactionUUIDs := make([]string, len(invoice.TransactionIDs))
+	for i, id := range invoice.TransactionIDs {
+		transactionUUIDs[i] = id.String()
+	}
+
+	return CreditCardInvoiceModel{
+		UUID:             invoice.ID.String(),
+		CreditCardUUID:   invoice.CreditCardID.String(),
+		ReferenceMonth:   invoice.ReferenceMonth,
+		OpeningDate:      invoice.OpeningDate,
+		ClosingDate:      invoice.ClosingDate,
+		DueDate:          invoice.DueDate,
+		PreviousBalance:  MoneyToModel(invoice.PreviousBalance),
+		TotalCharges:     MoneyToModel(invoice.TotalCharges),
+		TotalPayments:    MoneyToModel(invoice.TotalPayments),
+		ClosingBalance:   MoneyToModel(invoice.ClosingBalance),
+		Status:           string(invoice.Status),
+		TransactionUUIDs: transactionUUIDs,
+		CreatedAt:        invoice.CreatedAt,
+		UpdatedAt:        invoice.UpdatedAt,
+	}
+}
+
+func CreditCardInvoiceFromModel(model CreditCardInvoiceModel) (*entity.CreditCardInvoice, error) {
+	id, err := uuid.Parse(model.UUID)
+	if err != nil {
+		return nil, err
+	}
+
+	creditCardID, err := uuid.Parse(model.CreditCardUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionIDs := make([]uuid.UUID, len(model.TransactionUUIDs))
+	for i, uuidStr := range model.TransactionUUIDs {
+		txnID, err := uuid.Parse(uuidStr)
+		if err != nil {
+			return nil, err
+		}
+		transactionIDs[i] = txnID
+	}
+
+	return &entity.CreditCardInvoice{
+		ID:              id,
+		CreditCardID:    creditCardID,
+		ReferenceMonth:  model.ReferenceMonth,
+		OpeningDate:     model.OpeningDate,
+		ClosingDate:     model.ClosingDate,
+		DueDate:         model.DueDate,
+		PreviousBalance: MoneyFromModel(model.PreviousBalance),
+		TotalCharges:    MoneyFromModel(model.TotalCharges),
+		TotalPayments:   MoneyFromModel(model.TotalPayments),
+		ClosingBalance:  MoneyFromModel(model.ClosingBalance),
+		Status:          entity.InvoiceStatus(model.Status),
+		TransactionIDs:  transactionIDs,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
+	}, nil
 }

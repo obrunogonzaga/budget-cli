@@ -46,12 +46,13 @@ type App struct {
 }
 
 type UseCases struct {
-	Account     *usecase.AccountUseCase
-	CreditCard  *usecase.CreditCardUseCase
-	Bill        *usecase.BillUseCase
-	Transaction *usecase.TransactionUseCase
-	Person      *usecase.PersonUseCase
-	Report      *usecase.ReportUseCase
+	Account             *usecase.AccountUseCase
+	CreditCard          *usecase.CreditCardUseCase
+	CreditCardInvoice   *usecase.CreditCardInvoiceUseCase
+	Bill                *usecase.BillUseCase
+	Transaction         *usecase.TransactionUseCase
+	Person              *usecase.PersonUseCase
+	Report              *usecase.ReportUseCase
 }
 
 func NewApp(ctx context.Context, useCases UseCases) *App {
@@ -59,7 +60,7 @@ func NewApp(ctx context.Context, useCases UseCases) *App {
 		currentScreen:     DashboardScreen,
 		dashboardModel:    screen.NewDashboardModel(ctx, useCases.Account, useCases.Transaction, useCases.Bill),
 		accountsModel:     screen.NewAccountsModel(ctx, useCases.Account),
-		creditCardsModel:  screen.NewCreditCardsModel(ctx, useCases.CreditCard, useCases.Account),
+		creditCardsModel:  screen.NewCreditCardsModel(ctx, useCases.CreditCard, useCases.CreditCardInvoice, useCases.Account),
 		billsModel:        screen.NewBillsModel(ctx, useCases.Bill),
 		transactionsModel: screen.NewTransactionsModel(ctx, useCases.Transaction, useCases.Account, useCases.CreditCard, useCases.Bill, useCases.Person),
 		peopleModel:       screen.NewPeopleModel(ctx, useCases.Person),

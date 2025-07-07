@@ -33,18 +33,20 @@ func main() {
 	// Initialize repositories
 	accountRepo := mongodb.NewAccountRepository(db)
 	creditCardRepo := mongodb.NewCreditCardRepository(db)
+	creditCardInvoiceRepo := mongodb.NewCreditCardInvoiceRepository(db)
 	personRepo := mongodb.NewPersonRepository(db)
 	billRepo := mongodb.NewBillRepository(db)
 	transactionRepo := mongodb.NewTransactionRepository(db)
 	
 	// Initialize use cases
 	useCases := tui.UseCases{
-		Account:     usecase.NewAccountUseCase(accountRepo),
-		CreditCard:  usecase.NewCreditCardUseCase(creditCardRepo, accountRepo),
-		Bill:        usecase.NewBillUseCase(billRepo),
-		Transaction: usecase.NewTransactionUseCase(transactionRepo, accountRepo, creditCardRepo, billRepo),
-		Person:      usecase.NewPersonUseCase(personRepo),
-		Report:      usecase.NewReportUseCase(transactionRepo, personRepo, billRepo),
+		Account:           usecase.NewAccountUseCase(accountRepo),
+		CreditCard:        usecase.NewCreditCardUseCase(creditCardRepo, accountRepo),
+		CreditCardInvoice: usecase.NewCreditCardInvoiceUseCase(creditCardInvoiceRepo, creditCardRepo),
+		Bill:              usecase.NewBillUseCase(billRepo),
+		Transaction:       usecase.NewTransactionUseCaseWithInvoice(transactionRepo, accountRepo, creditCardRepo, creditCardInvoiceRepo, billRepo),
+		Person:            usecase.NewPersonUseCase(personRepo),
+		Report:            usecase.NewReportUseCase(transactionRepo, personRepo, billRepo),
 	}
 	
 	// Initialize and run TUI

@@ -17,35 +17,40 @@ import (
 )
 
 type CreditCardsModel struct {
-	ctx               context.Context
-	creditCardUseCase *usecase.CreditCardUseCase
-	accountUseCase    *usecase.AccountUseCase
+	ctx                    context.Context
+	creditCardUseCase      *usecase.CreditCardUseCase
+	creditCardInvoiceUseCase *usecase.CreditCardInvoiceUseCase
+	accountUseCase         *usecase.AccountUseCase
 	
 	// Data
-	creditCards       []*entity.CreditCard
-	accounts          []*entity.Account
+	creditCards            []*entity.CreditCard
+	accounts               []*entity.Account
+	invoices               []*entity.CreditCardInvoice
+	selectedInvoice        *entity.CreditCardInvoice
+	invoiceTransactions    []*entity.Transaction
 	
 	// View state
-	selectedIndex     int
-	viewMode          CreditCardViewMode
+	selectedIndex          int
+	selectedInvoiceIndex   int
+	viewMode               CreditCardViewMode
 	
 	// Loading and errors
-	loading           bool
-	err               error
+	loading                bool
+	err                    error
 	
 	// Form state
-	formModel         *CreditCardFormModel
+	formModel              *CreditCardFormModel
 	
 	// Payment state
-	paymentModel      *PaymentFormModel
+	paymentModel           *PaymentFormModel
 	
 	// Confirmation state
-	showConfirmDelete bool
-	confirmMessage    string
+	showConfirmDelete      bool
+	confirmMessage         string
 	
 	// Window dimensions
-	width             int
-	height            int
+	width                  int
+	height                 int
 }
 
 type CreditCardViewMode int
@@ -54,6 +59,8 @@ const (
 	CreditCardViewList CreditCardViewMode = iota
 	CreditCardViewForm
 	CreditCardViewDetails
+	CreditCardViewInvoices
+	CreditCardViewInvoiceDetails
 	CreditCardViewPayment
 	CreditCardViewConfirm
 )
@@ -93,13 +100,14 @@ type PaymentFormModel struct {
 	focusedField      int
 }
 
-func NewCreditCardsModel(ctx context.Context, creditCardUC *usecase.CreditCardUseCase, accountUC *usecase.AccountUseCase) tea.Model {
+func NewCreditCardsModel(ctx context.Context, creditCardUC *usecase.CreditCardUseCase, invoiceUC *usecase.CreditCardInvoiceUseCase, accountUC *usecase.AccountUseCase) tea.Model {
 	return &CreditCardsModel{
-		ctx:               ctx,
-		creditCardUseCase: creditCardUC,
-		accountUseCase:    accountUC,
-		viewMode:          CreditCardViewList,
-		loading:           true,
+		ctx:                    ctx,
+		creditCardUseCase:      creditCardUC,
+		creditCardInvoiceUseCase: invoiceUC,
+		accountUseCase:         accountUC,
+		viewMode:               CreditCardViewList,
+		loading:                true,
 		formModel: &CreditCardFormModel{
 			dueDayInput: "1",
 		},
@@ -133,6 +141,19 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.accounts = msg.accounts
 		return m, nil
 		
+	case invoicesLoadedMsg:
+		m.loading = false
+		m.invoices = msg.invoices
+		if len(m.invoices) > 0 && m.selectedInvoiceIndex >= len(m.invoices) {
+			m.selectedInvoiceIndex = len(m.invoices) - 1
+		}
+		return m, nil
+		
+	case invoiceTransactionsLoadedMsg:
+		m.loading = false
+		m.invoiceTransactions = msg.transactions
+		return m, nil
+		
 	case creditCardActionMsg:
 		m.loading = false
 		m.viewMode = CreditCardViewList
@@ -153,6 +174,10 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleFormKeys(msg)
 		case CreditCardViewDetails:
 			return m.handleDetailsKeys(msg)
+		case CreditCardViewInvoices:
+			return m.handleInvoicesKeys(msg)
+		case CreditCardViewInvoiceDetails:
+			return m.handleInvoiceDetailsKeys(msg)
 		case CreditCardViewPayment:
 			return m.handlePaymentKeys(msg)
 		case CreditCardViewConfirm:
@@ -179,6 +204,10 @@ func (m *CreditCardsModel) View() string {
 		return m.renderCreditCardForm()
 	case CreditCardViewDetails:
 		return m.renderCreditCardDetails()
+	case CreditCardViewInvoices:
+		return m.renderInvoicesList()
+	case CreditCardViewInvoiceDetails:
+		return m.renderInvoiceDetails()
 	case CreditCardViewPayment:
 		return m.renderPaymentForm()
 	case CreditCardViewConfirm:
@@ -205,6 +234,24 @@ func (m *CreditCardsModel) loadAccounts() tea.Msg {
 		return accountsLoadedMsg{accounts: []*entity.Account{}}
 	}
 	return accountsLoadedMsg{accounts: accounts}
+}
+
+func (m *CreditCardsModel) loadInvoices(creditCardID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		invoices, err := m.creditCardInvoiceUseCase.ListInvoicesByCard(m.ctx, creditCardID)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return invoicesLoadedMsg{invoices: invoices}
+	}
+}
+
+func (m *CreditCardsModel) loadInvoiceTransactions(invoiceID uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		// Assuming we have access to transaction use case through invoice use case or directly
+		// For now, return empty list - this would need to be properly implemented
+		return invoiceTransactionsLoadedMsg{transactions: []*entity.Transaction{}}
+	}
 }
 
 // Helper to reset form
@@ -306,6 +353,14 @@ type cardsLoadedMsg struct {
 
 type creditCardActionMsg struct{}
 
+type invoicesLoadedMsg struct {
+	invoices []*entity.CreditCardInvoice
+}
+
+type invoiceTransactionsLoadedMsg struct {
+	transactions []*entity.Transaction
+}
+
 // Key handler for list view
 func (m *CreditCardsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -398,6 +453,13 @@ func (m *CreditCardsModel) handleDetailsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			m.paymentModel.card = card
 			m.viewMode = CreditCardViewPayment
 		}
+	case "i":
+		if m.selectedIndex < len(m.creditCards) {
+			card := m.creditCards[m.selectedIndex]
+			m.viewMode = CreditCardViewInvoices
+			m.loading = true
+			return m, m.loadInvoices(card.ID)
+		}
 	}
 	
 	return m, nil
@@ -446,6 +508,43 @@ func (m *CreditCardsModel) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	case "n", "esc":
 		m.viewMode = CreditCardViewList
 		m.showConfirmDelete = false
+	}
+	
+	return m, nil
+}
+
+func (m *CreditCardsModel) handleInvoicesKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "b":
+		m.viewMode = CreditCardViewDetails
+		m.selectedInvoiceIndex = 0
+	case "up", "k":
+		if m.selectedInvoiceIndex > 0 {
+			m.selectedInvoiceIndex--
+		}
+	case "down", "j":
+		if m.selectedInvoiceIndex < len(m.invoices)-1 {
+			m.selectedInvoiceIndex++
+		}
+	case "enter":
+		if m.selectedInvoiceIndex < len(m.invoices) {
+			invoice := m.invoices[m.selectedInvoiceIndex]
+			m.selectedInvoice = invoice
+			m.viewMode = CreditCardViewInvoiceDetails
+			m.loading = true
+			return m, m.loadInvoiceTransactions(invoice.ID)
+		}
+	}
+	
+	return m, nil
+}
+
+func (m *CreditCardsModel) handleInvoiceDetailsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "b":
+		m.viewMode = CreditCardViewInvoices
+		m.invoiceTransactions = nil
+		m.selectedInvoice = nil
 	}
 	
 	return m, nil
@@ -1087,6 +1186,7 @@ func (m *CreditCardsModel) renderDetailsActions() string {
 	title := style.HeaderStyle.Render("Quick Actions")
 	
 	actions := []string{
+		"[i] View Invoices - See monthly statements",
 		"[p] Make Payment - Pay down your balance",
 		"[e] Edit Card - Update card information",
 		"[d] Delete Card - Remove this credit card",
@@ -1346,4 +1446,160 @@ func (m *CreditCardsModel) renderConfirmDialog() string {
 	)
 	
 	return dialogStyle.Render(content)
+}
+
+// Invoice-related render methods
+func (m *CreditCardsModel) renderInvoicesList() string {
+	if m.selectedIndex >= len(m.creditCards) {
+		return ""
+	}
+	
+	card := m.creditCards[m.selectedIndex]
+	
+	var sections []string
+	
+	title := style.TitleStyle.Render(fmt.Sprintf("📋 Invoices for %s", card.Name))
+	sections = append(sections, title)
+	
+	if len(m.invoices) == 0 {
+		empty := style.InfoStyle.Render("No invoices found for this credit card.")
+		sections = append(sections, empty)
+	} else {
+		table := m.renderInvoicesTable()
+		sections = append(sections, table)
+	}
+	
+	help := "[↑/↓] Navigate • [Enter] View Details • [b/Esc] Back"
+	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
+	
+	return lipgloss.JoinVertical(lipgloss.Top, sections...)
+}
+
+func (m *CreditCardsModel) renderInvoicesTable() string {
+	tableStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(style.Border).
+		Padding(1, 2).
+		MarginTop(1)
+	
+	headers := []string{"Status", "Month", "Period", "Total", "Paid", "Balance", "Due Date"}
+	headerRow := style.TableHeaderStyle.Render(
+		fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s", 
+			headers[0], headers[1], headers[2], headers[3], headers[4], headers[5], headers[6]),
+	)
+	
+	var rows []string
+	rows = append(rows, headerRow)
+	
+	for i, invoice := range m.invoices {
+		status := m.getInvoiceStatusIcon(invoice.Status)
+		month := invoice.ReferenceMonth
+		period := invoice.GetStatementPeriod()
+		total := invoice.TotalCharges.String()
+		paid := invoice.TotalPayments.String()
+		balance := invoice.ClosingBalance.String()
+		dueDate := invoice.DueDate.Format("Jan 02, 2006")
+		
+		// Color code due date if overdue
+		if invoice.Status == entity.InvoiceStatusOverdue {
+			dueDate = style.ErrorStyle.Render(dueDate)
+		}
+		
+		row := fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s", 
+			status, month, truncateString(period, 20), total, paid, balance, dueDate)
+		
+		if i == m.selectedInvoiceIndex {
+			row = style.SelectedMenuItemStyle.Render("► " + row)
+		} else {
+			row = style.MenuItemStyle.Render("  " + row)
+		}
+		
+		rows = append(rows, row)
+	}
+	
+	table := strings.Join(rows, "\n")
+	return tableStyle.Render(table)
+}
+
+func (m *CreditCardsModel) renderInvoiceDetails() string {
+	if m.selectedInvoice == nil {
+		return style.ErrorStyle.Render("No invoice selected")
+	}
+	
+	invoice := m.selectedInvoice
+	
+	var sections []string
+	
+	title := style.TitleStyle.Render(fmt.Sprintf("📋 Invoice Details - %s", invoice.ReferenceMonth))
+	sections = append(sections, title)
+	
+	// Invoice summary
+	summaryStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(style.Border).
+		Padding(1, 2).
+		MarginTop(1)
+	
+	summary := []string{
+		fmt.Sprintf("Status: %s %s", m.getInvoiceStatusIcon(invoice.Status), m.getInvoiceStatusName(invoice.Status)),
+		fmt.Sprintf("Statement Period: %s", invoice.GetStatementPeriod()),
+		fmt.Sprintf("Due Date: %s", invoice.GetDueDateFormatted()),
+		"",
+		fmt.Sprintf("Previous Balance: %s", invoice.PreviousBalance.String()),
+		fmt.Sprintf("Total Charges: %s", invoice.TotalCharges.String()),
+		fmt.Sprintf("Total Payments: %s", invoice.TotalPayments.String()),
+		fmt.Sprintf("Closing Balance: %s", invoice.ClosingBalance.String()),
+	}
+	
+	sections = append(sections, summaryStyle.Render(strings.Join(summary, "\n")))
+	
+	// Transactions
+	if len(m.invoiceTransactions) > 0 {
+		transStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(style.Info).
+			Padding(1, 2).
+			MarginTop(1)
+		
+		transHeader := style.HeaderStyle.Render("Transactions")
+		// TODO: Render actual transactions when implemented
+		transContent := style.InfoStyle.Render("Transaction list will be displayed here")
+		
+		sections = append(sections, transStyle.Render(transHeader + "\n\n" + transContent))
+	}
+	
+	help := "[b/Esc] Back to Invoices"
+	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
+	
+	return lipgloss.JoinVertical(lipgloss.Top, sections...)
+}
+
+func (m *CreditCardsModel) getInvoiceStatusIcon(status entity.InvoiceStatus) string {
+	switch status {
+	case entity.InvoiceStatusOpen:
+		return "📂"
+	case entity.InvoiceStatusClosed:
+		return "📁"
+	case entity.InvoiceStatusPaid:
+		return "✅"
+	case entity.InvoiceStatusOverdue:
+		return "⚠️"
+	default:
+		return "❓"
+	}
+}
+
+func (m *CreditCardsModel) getInvoiceStatusName(status entity.InvoiceStatus) string {
+	switch status {
+	case entity.InvoiceStatusOpen:
+		return "Open"
+	case entity.InvoiceStatusClosed:
+		return "Closed"
+	case entity.InvoiceStatusPaid:
+		return "Paid"
+	case entity.InvoiceStatusOverdue:
+		return "Overdue"
+	default:
+		return "Unknown"
+	}
 }

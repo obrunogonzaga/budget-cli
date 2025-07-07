@@ -31,18 +31,19 @@ const (
 )
 
 type Transaction struct {
-	ID           uuid.UUID
-	AccountID    *uuid.UUID
-	CreditCardID *uuid.UUID
-	BillID       *uuid.UUID
-	Type         TransactionType
-	Category     TransactionCategory
-	Amount       valueobject.Money
-	Description  string
-	Date         time.Time
-	SharedWith   []SharedExpense
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                  uuid.UUID
+	AccountID           *uuid.UUID
+	CreditCardID        *uuid.UUID
+	CreditCardInvoiceID *uuid.UUID
+	BillID              *uuid.UUID
+	Type                TransactionType
+	Category            TransactionCategory
+	Amount              valueobject.Money
+	Description         string
+	Date                time.Time
+	SharedWith          []SharedExpense
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type SharedExpense struct {
@@ -78,6 +79,11 @@ func NewTransaction(
 
 func (t *Transaction) AssignToBill(billID uuid.UUID) {
 	t.BillID = &billID
+	t.UpdatedAt = time.Now()
+}
+
+func (t *Transaction) AssignToCreditCardInvoice(invoiceID uuid.UUID) {
+	t.CreditCardInvoiceID = &invoiceID
 	t.UpdatedAt = time.Now()
 }
 
