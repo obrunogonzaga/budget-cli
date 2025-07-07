@@ -11,9 +11,7 @@ import (
 
 // NewCreditCardsModel is now implemented in credit_cards.go
 
-func NewBillsModel(ctx context.Context, billUC *usecase.BillUseCase) tea.Model {
-	return &simpleModel{title: "Bills", content: "Bill management screen - Coming soon!"}
-}
+// NewBillsModel is now implemented in bills.go
 
 // NewTransactionsModel is now implemented in transactions.go
 

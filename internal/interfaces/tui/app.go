@@ -93,6 +93,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if checker, ok := a.creditCardsModel.(FormModeChecker); ok {
 				isInFormMode = checker.IsInFormMode()
 			}
+		case BillsScreen:
+			if checker, ok := a.billsModel.(FormModeChecker); ok {
+				isInFormMode = checker.IsInFormMode()
+			}
 		// Add other screens here when they implement forms
 		}
 		
