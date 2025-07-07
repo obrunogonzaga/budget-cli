@@ -85,6 +85,39 @@ docker build -t budget-cli .
 - `feature/*`: Feature branches
 - `fix/*`: Bug fix branches
 
+### Development Workflow with Claude
+When making changes through Claude, the following workflow will be followed:
+
+1. **Update main branch**
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+2. **Create feature branch**
+   ```bash
+   git checkout -b feature/description-of-change
+   # or for fixes:
+   git checkout -b fix/description-of-issue
+   ```
+
+3. **Work on the feature branch**
+   - All development work happens here
+   - Commit changes with descriptive messages
+   - Test thoroughly
+
+4. **Push branch to GitHub** (when ready)
+   ```bash
+   git push -u origin feature/description-of-change
+   ```
+
+5. **Return to main branch**
+   ```bash
+   git checkout main
+   ```
+
+Note: After pushing, you can create a Pull Request on GitHub to review and merge the changes.
+
 ### Commit Messages
 ```bash
 # Format: type(scope): description
