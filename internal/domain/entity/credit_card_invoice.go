@@ -39,16 +39,16 @@ func NewCreditCardInvoice(creditCardID uuid.UUID, referenceMonth string, opening
 	if closingDate.Before(openingDate) {
 		return nil, fmt.Errorf("closing date cannot be before opening date")
 	}
-	
+
 	if dueDate.Before(closingDate) {
 		return nil, fmt.Errorf("due date cannot be before closing date")
 	}
-	
+
 	// Validate reference month format
 	if _, err := time.Parse("2006-01", referenceMonth); err != nil {
 		return nil, fmt.Errorf("invalid reference month format, expected YYYY-MM")
 	}
-	
+
 	now := time.Now()
 	return &CreditCardInvoice{
 		ID:              uuid.New(),
@@ -72,10 +72,10 @@ func (i *CreditCardInvoice) AddTransaction(transactionID uuid.UUID, amount value
 	if i.Status != InvoiceStatusOpen {
 		return fmt.Errorf("cannot add transaction to %s invoice", i.Status)
 	}
-	
+
 	// Add transaction ID to the list
 	i.TransactionIDs = append(i.TransactionIDs, transactionID)
-	
+
 	// Update amounts
 	if isPayment {
 		newPayments, err := i.TotalPayments.Add(amount)
@@ -90,12 +90,12 @@ func (i *CreditCardInvoice) AddTransaction(transactionID uuid.UUID, amount value
 		}
 		i.TotalCharges = newCharges
 	}
-	
+
 	// Recalculate closing balance
 	if err := i.recalculateBalance(); err != nil {
 		return err
 	}
-	
+
 	i.UpdatedAt = time.Now()
 	return nil
 }
@@ -104,7 +104,7 @@ func (i *CreditCardInvoice) RemoveTransaction(transactionID uuid.UUID, amount va
 	if i.Status != InvoiceStatusOpen {
 		return fmt.Errorf("cannot remove transaction from %s invoice", i.Status)
 	}
-	
+
 	// Remove transaction ID from the list
 	newTransactionIDs := []uuid.UUID{}
 	found := false
@@ -115,13 +115,13 @@ func (i *CreditCardInvoice) RemoveTransaction(transactionID uuid.UUID, amount va
 			found = true
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("transaction not found in invoice")
 	}
-	
+
 	i.TransactionIDs = newTransactionIDs
-	
+
 	// Update amounts
 	if isPayment {
 		newPayments, err := i.TotalPayments.Subtract(amount)
@@ -136,12 +136,12 @@ func (i *CreditCardInvoice) RemoveTransaction(transactionID uuid.UUID, amount va
 		}
 		i.TotalCharges = newCharges
 	}
-	
+
 	// Recalculate closing balance
 	if err := i.recalculateBalance(); err != nil {
 		return err
 	}
-	
+
 	i.UpdatedAt = time.Now()
 	return nil
 }
@@ -152,12 +152,12 @@ func (i *CreditCardInvoice) recalculateBalance() error {
 	if err != nil {
 		return err
 	}
-	
+
 	closingBalance, err := balanceWithCharges.Subtract(i.TotalPayments)
 	if err != nil {
 		return err
 	}
-	
+
 	i.ClosingBalance = closingBalance
 	return nil
 }
@@ -166,13 +166,13 @@ func (i *CreditCardInvoice) Close() error {
 	if i.Status != InvoiceStatusOpen {
 		return fmt.Errorf("invoice is already %s", i.Status)
 	}
-	
+
 	i.Status = InvoiceStatusClosed
 	i.UpdatedAt = time.Now()
-	
+
 	// Check if it should be marked as overdue
 	i.updateStatusIfOverdue()
-	
+
 	return nil
 }
 
@@ -180,11 +180,11 @@ func (i *CreditCardInvoice) MarkAsPaid() error {
 	if i.Status == InvoiceStatusPaid {
 		return fmt.Errorf("invoice is already paid")
 	}
-	
+
 	if !i.ClosingBalance.IsZero() && !i.ClosingBalance.IsNegative() {
 		return fmt.Errorf("invoice still has outstanding balance of %s", i.ClosingBalance.String())
 	}
-	
+
 	i.Status = InvoiceStatusPaid
 	i.UpdatedAt = time.Now()
 	return nil
@@ -214,6 +214,6 @@ func (i *CreditCardInvoice) GetDueDateFormatted() string {
 
 // Check if a transaction date falls within this invoice period
 func (i *CreditCardInvoice) ContainsDate(date time.Time) bool {
-	return (date.Equal(i.OpeningDate) || date.After(i.OpeningDate)) && 
-	       (date.Equal(i.ClosingDate) || date.Before(i.ClosingDate))
+	return (date.Equal(i.OpeningDate) || date.After(i.OpeningDate)) &&
+		(date.Equal(i.ClosingDate) || date.Before(i.ClosingDate))
 }

@@ -30,16 +30,16 @@ func (uc *CreditCardInvoiceUseCase) CreateInvoice(ctx context.Context, creditCar
 	if err != nil {
 		return nil, fmt.Errorf("credit card not found: %w", err)
 	}
-	
+
 	// Check if invoice already exists for this month
 	existing, _ := uc.invoiceRepo.FindByMonth(ctx, creditCardID, referenceMonth)
 	if existing != nil {
 		return nil, fmt.Errorf("invoice already exists for %s", referenceMonth)
 	}
-	
+
 	// Get previous invoice to calculate previous balance
 	previousBalance := valueobject.NewMoney(0, card.CreditLimit.Currency())
-	
+
 	// Find the most recent closed invoice
 	invoices, err := uc.invoiceRepo.FindByCreditCard(ctx, creditCardID)
 	if err == nil && len(invoices) > 0 {
@@ -51,16 +51,16 @@ func (uc *CreditCardInvoiceUseCase) CreateInvoice(ctx context.Context, creditCar
 			}
 		}
 	}
-	
+
 	invoice, err := entity.NewCreditCardInvoice(creditCardID, referenceMonth, openingDate, closingDate, dueDate, previousBalance)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := uc.invoiceRepo.Create(ctx, invoice); err != nil {
 		return nil, fmt.Errorf("failed to create invoice: %w", err)
 	}
-	
+
 	return invoice, nil
 }
 
@@ -71,24 +71,24 @@ func (uc *CreditCardInvoiceUseCase) GetCurrentInvoice(ctx context.Context, credi
 	if err == nil && invoice != nil {
 		return invoice, nil
 	}
-	
+
 	// If no open invoice, create one for the current month
 	card, err := uc.creditCardRepo.FindByID(ctx, creditCardID)
 	if err != nil {
 		return nil, fmt.Errorf("credit card not found: %w", err)
 	}
-	
+
 	now := time.Now()
 	year, month := now.Year(), now.Month()
 	referenceMonth := fmt.Sprintf("%04d-%02d", year, month)
-	
+
 	// Calculate dates based on credit card due day
 	openingDate := time.Date(year, month, 1, 0, 0, 0, 0, now.Location())
 	closingDate := time.Date(year, month+1, 1, 0, 0, 0, 0, now.Location()).AddDate(0, 0, -1)
-	
+
 	// Due date is the card's due day of the next month
 	dueDate := time.Date(year, month+1, card.DueDay, 0, 0, 0, 0, now.Location())
-	
+
 	return uc.CreateInvoice(ctx, creditCardID, referenceMonth, openingDate, closingDate, dueDate)
 }
 
@@ -98,38 +98,38 @@ func (uc *CreditCardInvoiceUseCase) CloseInvoice(ctx context.Context, invoiceID 
 	if err != nil {
 		return err
 	}
-	
+
 	if err := invoice.Close(); err != nil {
 		return err
 	}
-	
+
 	if err := uc.invoiceRepo.Update(ctx, invoice); err != nil {
 		return fmt.Errorf("failed to close invoice: %w", err)
 	}
-	
+
 	// Create next month's invoice if requested
 	if createNext {
 		card, err := uc.creditCardRepo.FindByID(ctx, invoice.CreditCardID)
 		if err != nil {
 			return fmt.Errorf("credit card not found: %w", err)
 		}
-		
+
 		// Parse current invoice month
 		t, _ := time.Parse("2006-01", invoice.ReferenceMonth)
 		nextMonth := t.AddDate(0, 1, 0)
 		referenceMonth := nextMonth.Format("2006-01")
-		
+
 		year, month := nextMonth.Year(), nextMonth.Month()
 		openingDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 		closingDate := time.Date(year, month+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 		dueDate := time.Date(year, month+1, card.DueDay, 0, 0, 0, 0, time.UTC)
-		
+
 		_, err = uc.CreateInvoice(ctx, invoice.CreditCardID, referenceMonth, openingDate, closingDate, dueDate)
 		if err != nil {
 			return fmt.Errorf("failed to create next invoice: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -149,12 +149,12 @@ func (uc *CreditCardInvoiceUseCase) AddTransactionToInvoice(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := invoice.AddTransaction(transactionID, money, isPayment); err != nil {
 		return err
 	}
-	
+
 	return uc.invoiceRepo.Update(ctx, invoice)
 }
 
@@ -164,12 +164,12 @@ func (uc *CreditCardInvoiceUseCase) RemoveTransactionFromInvoice(ctx context.Con
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := invoice.RemoveTransaction(transactionID, money, isPayment); err != nil {
 		return err
 	}
-	
+
 	return uc.invoiceRepo.Update(ctx, invoice)
 }
 
@@ -179,22 +179,22 @@ func (uc *CreditCardInvoiceUseCase) ProcessPayment(ctx context.Context, invoiceI
 	if err != nil {
 		return err
 	}
-	
+
 	// Add as a payment transaction
 	transactionID := uuid.New() // This would normally come from the transaction creation
 	money := valueobject.NewMoney(amount, currency)
-	
+
 	if err := invoice.AddTransaction(transactionID, money, true); err != nil {
 		return err
 	}
-	
+
 	// Check if invoice is fully paid
 	if invoice.ClosingBalance.IsZero() || invoice.ClosingBalance.IsNegative() {
 		if err := invoice.MarkAsPaid(); err != nil {
 			return err
 		}
 	}
-	
+
 	return uc.invoiceRepo.Update(ctx, invoice)
 }
 
@@ -210,7 +210,7 @@ func (uc *CreditCardInvoiceUseCase) UpdateOverdueInvoices(ctx context.Context, c
 	if err != nil {
 		return err
 	}
-	
+
 	now := time.Now()
 	for _, invoice := range closedInvoices {
 		if now.After(invoice.DueDate) && !invoice.ClosingBalance.IsZero() && !invoice.ClosingBalance.IsNegative() {
@@ -220,6 +220,6 @@ func (uc *CreditCardInvoiceUseCase) UpdateOverdueInvoices(ctx context.Context, c
 			}
 		}
 	}
-	
+
 	return nil
 }

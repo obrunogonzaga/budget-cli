@@ -10,47 +10,47 @@ import (
 	"financli/internal/application/usecase"
 	"financli/internal/domain/entity"
 	"financli/internal/interfaces/tui/style"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 )
 
 type CreditCardsModel struct {
-	ctx                    context.Context
-	creditCardUseCase      *usecase.CreditCardUseCase
+	ctx                      context.Context
+	creditCardUseCase        *usecase.CreditCardUseCase
 	creditCardInvoiceUseCase *usecase.CreditCardInvoiceUseCase
-	accountUseCase         *usecase.AccountUseCase
-	
+	accountUseCase           *usecase.AccountUseCase
+
 	// Data
-	creditCards            []*entity.CreditCard
-	accounts               []*entity.Account
-	invoices               []*entity.CreditCardInvoice
-	selectedInvoice        *entity.CreditCardInvoice
-	invoiceTransactions    []*entity.Transaction
-	
+	creditCards         []*entity.CreditCard
+	accounts            []*entity.Account
+	invoices            []*entity.CreditCardInvoice
+	selectedInvoice     *entity.CreditCardInvoice
+	invoiceTransactions []*entity.Transaction
+
 	// View state
-	selectedIndex          int
-	selectedInvoiceIndex   int
-	viewMode               CreditCardViewMode
-	
+	selectedIndex        int
+	selectedInvoiceIndex int
+	viewMode             CreditCardViewMode
+
 	// Loading and errors
-	loading                bool
-	err                    error
-	
+	loading bool
+	err     error
+
 	// Form state
-	formModel              *CreditCardFormModel
-	
+	formModel *CreditCardFormModel
+
 	// Payment state
-	paymentModel           *PaymentFormModel
-	
+	paymentModel *PaymentFormModel
+
 	// Confirmation state
-	showConfirmDelete      bool
-	confirmMessage         string
-	
+	showConfirmDelete bool
+	confirmMessage    string
+
 	// Window dimensions
-	width                  int
-	height                 int
+	width  int
+	height int
 }
 
 type CreditCardViewMode int
@@ -67,47 +67,47 @@ const (
 
 type CreditCardFormModel struct {
 	// Form fields
-	name              string
-	lastFourDigits    string
-	creditLimit       string
-	dueDay            string
-	
+	name           string
+	lastFourDigits string
+	creditLimit    string
+	dueDay         string
+
 	// Selection states
-	selectedAccount   int
-	
+	selectedAccount int
+
 	// Input fields
-	nameInput         string
-	lastFourInput     string
-	limitInput        string
-	dueDayInput       string
-	
+	nameInput     string
+	lastFourInput string
+	limitInput    string
+	dueDayInput   string
+
 	// Navigation
-	focusedField      int
-	
+	focusedField int
+
 	// Edit state
-	editing           bool
-	editingID         *uuid.UUID
+	editing   bool
+	editingID *uuid.UUID
 }
 
 type PaymentFormModel struct {
-	cardID            uuid.UUID
-	card              *entity.CreditCard
-	
+	cardID uuid.UUID
+	card   *entity.CreditCard
+
 	// Payment amount
-	amountInput       string
-	
+	amountInput string
+
 	// Navigation
-	focusedField      int
+	focusedField int
 }
 
 func NewCreditCardsModel(ctx context.Context, creditCardUC *usecase.CreditCardUseCase, invoiceUC *usecase.CreditCardInvoiceUseCase, accountUC *usecase.AccountUseCase) tea.Model {
 	return &CreditCardsModel{
-		ctx:                    ctx,
-		creditCardUseCase:      creditCardUC,
+		ctx:                      ctx,
+		creditCardUseCase:        creditCardUC,
 		creditCardInvoiceUseCase: invoiceUC,
-		accountUseCase:         accountUC,
-		viewMode:               CreditCardViewList,
-		loading:                true,
+		accountUseCase:           accountUC,
+		viewMode:                 CreditCardViewList,
+		loading:                  true,
 		formModel: &CreditCardFormModel{
 			dueDayInput: "1",
 		},
@@ -128,7 +128,7 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-		
+
 	case cardsLoadedMsg:
 		m.loading = false
 		m.creditCards = msg.creditCards
@@ -136,11 +136,11 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedIndex = len(m.creditCards) - 1
 		}
 		return m, nil
-		
+
 	case accountsLoadedMsg:
 		m.accounts = msg.accounts
 		return m, nil
-		
+
 	case invoicesLoadedMsg:
 		m.loading = false
 		m.invoices = msg.invoices
@@ -148,24 +148,24 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedInvoiceIndex = len(m.invoices) - 1
 		}
 		return m, nil
-		
+
 	case invoiceTransactionsLoadedMsg:
 		m.loading = false
 		m.invoiceTransactions = msg.transactions
 		return m, nil
-		
+
 	case creditCardActionMsg:
 		m.loading = false
 		m.viewMode = CreditCardViewList
 		m.resetForm()
 		m.resetPaymentForm()
 		return m, m.loadCreditCards
-		
+
 	case errMsg:
 		m.loading = false
 		m.err = msg.err
 		return m, nil
-		
+
 	case tea.KeyMsg:
 		switch m.viewMode {
 		case CreditCardViewList:
@@ -184,7 +184,7 @@ func (m *CreditCardsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleConfirmKeys(msg)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -192,11 +192,11 @@ func (m *CreditCardsModel) View() string {
 	if m.loading {
 		return style.InfoStyle.Render("Loading credit cards...")
 	}
-	
+
 	if m.err != nil {
 		return style.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 	}
-	
+
 	switch m.viewMode {
 	case CreditCardViewList:
 		return m.renderCreditCardsList()
@@ -213,7 +213,7 @@ func (m *CreditCardsModel) View() string {
 	case CreditCardViewConfirm:
 		return m.renderConfirmDialog()
 	}
-	
+
 	return ""
 }
 
@@ -223,7 +223,7 @@ func (m *CreditCardsModel) loadCreditCards() tea.Msg {
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return cardsLoadedMsg{creditCards: cards}
 }
 
@@ -257,8 +257,8 @@ func (m *CreditCardsModel) loadInvoiceTransactions(invoiceID uuid.UUID) tea.Cmd 
 // Helper to reset form
 func (m *CreditCardsModel) resetForm() {
 	m.formModel = &CreditCardFormModel{
-		dueDayInput:   "1",
-		focusedField:  0,
+		dueDayInput:     "1",
+		focusedField:    0,
 		selectedAccount: 0,
 	}
 }
@@ -285,10 +285,10 @@ func (m *CreditCardsModel) getAccountName(accountID uuid.UUID) string {
 func (m *CreditCardsModel) getNextDueDate(dueDay int) time.Time {
 	now := time.Now()
 	year, month, _ := now.Date()
-	
+
 	// Create date for this month
 	dueDate := time.Date(year, month, dueDay, 0, 0, 0, 0, now.Location())
-	
+
 	// If the due date has passed this month, move to next month
 	if dueDate.Before(now) {
 		if month == time.December {
@@ -297,12 +297,12 @@ func (m *CreditCardsModel) getNextDueDate(dueDay int) time.Time {
 			dueDate = time.Date(year, month+1, dueDay, 0, 0, 0, 0, now.Location())
 		}
 	}
-	
+
 	// Handle months with fewer days than the due day
 	for dueDate.Day() != dueDay {
 		dueDate = dueDate.AddDate(0, 0, -1)
 	}
-	
+
 	return dueDate
 }
 
@@ -322,12 +322,12 @@ func (m *CreditCardsModel) renderProgressBar(percentage float64, width int) stri
 	if width <= 0 {
 		width = 10
 	}
-	
+
 	filled := int(percentage * float64(width) / 100)
 	if filled > width {
 		filled = width
 	}
-	
+
 	bar := ""
 	for i := 0; i < width; i++ {
 		if i < filled {
@@ -336,7 +336,7 @@ func (m *CreditCardsModel) renderProgressBar(percentage float64, width int) stri
 			bar += "░"
 		}
 	}
-	
+
 	color := m.getUtilizationColor(percentage)
 	return lipgloss.NewStyle().Foreground(color).Render(bar)
 }
@@ -406,13 +406,13 @@ func (m *CreditCardsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "b":
 		return m, func() tea.Msg { return BackToDashboardMsg{} }
 	}
-	
+
 	return m, nil
 }
 
 func (m *CreditCardsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	totalFields := 6 // name, last4, limit, account, dueday, buttons
-	
+
 	switch msg.String() {
 	case "esc":
 		m.viewMode = CreditCardViewList
@@ -433,7 +433,7 @@ func (m *CreditCardsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		return m.handleFormInput(msg)
 	}
-	
+
 	return m, nil
 }
 
@@ -461,7 +461,7 @@ func (m *CreditCardsModel) handleDetailsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			return m, m.loadInvoices(card.ID)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -494,7 +494,7 @@ func (m *CreditCardsModel) handlePaymentKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -509,7 +509,7 @@ func (m *CreditCardsModel) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.viewMode = CreditCardViewList
 		m.showConfirmDelete = false
 	}
-	
+
 	return m, nil
 }
 
@@ -535,7 +535,7 @@ func (m *CreditCardsModel) handleInvoicesKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, m.loadInvoiceTransactions(invoice.ID)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -546,7 +546,7 @@ func (m *CreditCardsModel) handleInvoiceDetailsKeys(msg tea.KeyMsg) (tea.Model, 
 		m.invoiceTransactions = nil
 		m.selectedInvoice = nil
 	}
-	
+
 	return m, nil
 }
 
@@ -555,18 +555,18 @@ func (m *CreditCardsModel) editCreditCard() (tea.Model, tea.Cmd) {
 	if m.selectedIndex >= len(m.creditCards) {
 		return m, nil
 	}
-	
+
 	card := m.creditCards[m.selectedIndex]
 	m.viewMode = CreditCardViewForm
 	m.formModel.editing = true
 	m.formModel.editingID = &card.ID
-	
+
 	// Pre-fill form with card data
 	m.formModel.nameInput = card.Name
 	m.formModel.lastFourInput = card.LastFourDigits
 	m.formModel.limitInput = fmt.Sprintf("%.2f", card.CreditLimit.Amount())
 	m.formModel.dueDayInput = strconv.Itoa(card.DueDay)
-	
+
 	// Find and set the account
 	for i, acc := range m.accounts {
 		if acc.ID == card.AccountID {
@@ -574,21 +574,21 @@ func (m *CreditCardsModel) editCreditCard() (tea.Model, tea.Cmd) {
 			break
 		}
 	}
-	
+
 	return m, nil
 }
 
 // View rendering for credit cards list
 func (m *CreditCardsModel) renderCreditCardsList() string {
 	var sections []string
-	
+
 	title := style.TitleStyle.Render("💳 Credit Cards Management")
 	sections = append(sections, title)
-	
+
 	// Summary section
 	summary := m.renderSummary()
 	sections = append(sections, summary)
-	
+
 	if len(m.creditCards) == 0 {
 		empty := style.InfoStyle.Render("No credit cards found. Press 'n' to add your first credit card.")
 		sections = append(sections, empty)
@@ -596,17 +596,17 @@ func (m *CreditCardsModel) renderCreditCardsList() string {
 		// Credit cards table
 		table := m.renderCreditCardsTable()
 		sections = append(sections, table)
-		
+
 		// Selected card details
 		if m.selectedIndex < len(m.creditCards) {
 			details := m.renderSelectedCardInfo()
 			sections = append(sections, details)
 		}
 	}
-	
+
 	help := m.renderListHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -614,33 +614,33 @@ func (m *CreditCardsModel) renderCreditCardsList() string {
 func (m *CreditCardsModel) renderSummary() string {
 	var totalLimit, totalBalance, totalAvailable float64
 	cardCount := len(m.creditCards)
-	
+
 	for _, card := range m.creditCards {
 		totalLimit += card.CreditLimit.Amount()
 		totalBalance += card.CurrentBalance.Amount()
 		available, _ := card.GetAvailableCredit()
 		totalAvailable += available.Amount()
 	}
-	
+
 	avgUtilization := 0.0
 	if totalLimit > 0 {
 		avgUtilization = (totalBalance / totalLimit) * 100
 	}
-	
+
 	summaryStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Info).
 		Padding(0, 1).
 		MarginTop(1)
-	
+
 	cards := fmt.Sprintf("Cards: %d", cardCount)
 	limit := fmt.Sprintf("Total Limit: R$ %.2f", totalLimit)
 	balance := fmt.Sprintf("Total Balance: R$ %.2f", totalBalance)
 	available := style.SuccessStyle.Render(fmt.Sprintf("Available: R$ %.2f", totalAvailable))
-	
+
 	utilColor := m.getUtilizationColor(avgUtilization)
 	utilization := lipgloss.NewStyle().Foreground(utilColor).Render(fmt.Sprintf("Avg Utilization: %.1f%%", avgUtilization))
-	
+
 	content := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		cards,
@@ -653,7 +653,7 @@ func (m *CreditCardsModel) renderSummary() string {
 		" | ",
 		utilization,
 	)
-	
+
 	return summaryStyle.Render(content)
 }
 
@@ -664,41 +664,41 @@ func (m *CreditCardsModel) renderCreditCardsTable() string {
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	headers := []string{"Card Name", "Last 4", "Balance", "Limit", "Available", "Utilization"}
 	headerRow := style.TableHeaderStyle.Render(
 		fmt.Sprintf("%-20s %-8s %-12s %-12s %-12s %-25s",
 			headers[0], headers[1], headers[2], headers[3], headers[4], headers[5]),
 	)
-	
+
 	var rows []string
 	rows = append(rows, headerRow)
-	
+
 	for i, card := range m.creditCards {
 		name := truncateString(card.Name, 20)
 		lastFour := card.LastFourDigits
 		balance := fmt.Sprintf("R$ %.2f", card.CurrentBalance.Amount())
 		limit := fmt.Sprintf("R$ %.2f", card.CreditLimit.Amount())
-		
+
 		available, _ := card.GetAvailableCredit()
 		availableStr := fmt.Sprintf("R$ %.2f", available.Amount())
-		
+
 		utilization := card.GetUtilizationPercentage()
 		utilizationBar := m.renderProgressBar(utilization, 10)
 		utilizationStr := fmt.Sprintf("%s %.1f%%", utilizationBar, utilization)
-		
+
 		row := fmt.Sprintf("%-20s %-8s %-12s %-12s %-12s %-25s",
 			name, lastFour, balance, limit, availableStr, utilizationStr)
-		
+
 		if i == m.selectedIndex {
 			row = style.SelectedMenuItemStyle.Render("► " + row)
 		} else {
 			row = style.MenuItemStyle.Render("  " + row)
 		}
-		
+
 		rows = append(rows, row)
 	}
-	
+
 	table := strings.Join(rows, "\n")
 	return tableStyle.Render(table)
 }
@@ -708,26 +708,26 @@ func (m *CreditCardsModel) renderSelectedCardInfo() string {
 	if m.selectedIndex >= len(m.creditCards) {
 		return ""
 	}
-	
+
 	card := m.creditCards[m.selectedIndex]
-	
+
 	detailsStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	accountName := m.getAccountName(card.AccountID)
 	nextDue := m.getNextDueDate(card.DueDay)
 	daysUntilDue := int(time.Until(nextDue).Hours() / 24)
-	
+
 	details := []string{
 		fmt.Sprintf("Linked Account: %s", accountName),
 		fmt.Sprintf("Due Day: %d of each month", card.DueDay),
 		fmt.Sprintf("Next Due Date: %s (%d days)", nextDue.Format("Jan 2, 2006"), daysUntilDue),
 		fmt.Sprintf("Created: %s", card.CreatedAt.Format("2006-01-02")),
 	}
-	
+
 	content := strings.Join(details, "\n")
 	return detailsStyle.Render(content)
 }
@@ -739,7 +739,6 @@ func (m *CreditCardsModel) renderListHelp() string {
 		MarginTop(1).
 		Render(help)
 }
-
 
 // Handle form input based on focused field
 func (m *CreditCardsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -800,7 +799,7 @@ func (m *CreditCardsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -811,40 +810,40 @@ func (m *CreditCardsModel) submitForm() (tea.Model, tea.Cmd) {
 		m.err = fmt.Errorf("card name is required")
 		return m, nil
 	}
-	
+
 	if len(m.formModel.lastFourInput) != 4 {
 		m.err = fmt.Errorf("last 4 digits must be exactly 4 numbers")
 		return m, nil
 	}
-	
+
 	limit, err := strconv.ParseFloat(m.formModel.limitInput, 64)
 	if err != nil || limit <= 0 {
 		m.err = fmt.Errorf("invalid credit limit")
 		return m, nil
 	}
-	
+
 	dueDay, err := strconv.Atoi(m.formModel.dueDayInput)
 	if err != nil || dueDay < 1 || dueDay > 31 {
 		m.err = fmt.Errorf("due day must be between 1 and 31")
 		return m, nil
 	}
-	
+
 	if len(m.accounts) == 0 {
 		m.err = fmt.Errorf("no accounts available to link")
 		return m, nil
 	}
-	
+
 	accountID := m.accounts[m.formModel.selectedAccount].ID
-	
+
 	m.loading = true
-	
+
 	if m.formModel.editing && m.formModel.editingID != nil {
 		// TODO: Implement update credit card
 		return m, func() tea.Msg {
 			return errMsg{err: fmt.Errorf("update credit card not implemented yet")}
 		}
 	}
-	
+
 	// Create credit card
 	return m, func() tea.Msg {
 		_, err := m.creditCardUseCase.CreateCreditCard(
@@ -859,31 +858,31 @@ func (m *CreditCardsModel) submitForm() (tea.Model, tea.Cmd) {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		
+
 		return creditCardActionMsg{}
 	}
 }
 
 func (m *CreditCardsModel) renderCreditCardForm() string {
 	var sections []string
-	
+
 	title := "📝 New Credit Card"
 	if m.formModel.editing {
 		title = "✏️ Edit Credit Card"
 	}
 	sections = append(sections, style.TitleStyle.Render(title))
-	
+
 	if m.err != nil {
 		errorMsg := style.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 		sections = append(sections, errorMsg)
 	}
-	
+
 	form := m.renderForm()
 	sections = append(sections, form)
-	
+
 	help := m.renderFormHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -894,28 +893,28 @@ func (m *CreditCardsModel) renderForm() string {
 		BorderForeground(style.Border).
 		Padding(2, 4).
 		MarginTop(1)
-	
+
 	var fields []string
-	
+
 	// Name field
 	fields = append(fields, m.renderFormField("Card Name:", m.formModel.nameInput, 0))
-	
+
 	// Last 4 digits field
 	fields = append(fields, m.renderFormField("Last 4 Digits:", m.formModel.lastFourInput, 1))
-	
+
 	// Credit limit field
 	fields = append(fields, m.renderFormField("Credit Limit (R$):", m.formModel.limitInput, 2))
-	
+
 	// Account selector
 	fields = append(fields, m.renderAccountSelector())
-	
+
 	// Due day field
 	fields = append(fields, m.renderFormField("Due Day (1-31):", m.formModel.dueDayInput, 4))
-	
+
 	// Buttons
 	buttons := m.renderFormButtons()
 	fields = append(fields, buttons)
-	
+
 	content := strings.Join(fields, "\n\n")
 	return formStyle.Render(content)
 }
@@ -926,20 +925,20 @@ func (m *CreditCardsModel) renderFormField(label, value string, fieldIndex int) 
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	var inputStyle lipgloss.Style
 	if m.formModel.focusedField == fieldIndex {
 		inputStyle = style.FocusedInputStyle.Width(30)
 	} else {
 		inputStyle = style.InputStyle.Width(30)
 	}
-	
+
 	input := inputStyle.Render(value)
-	
+
 	if m.formModel.focusedField == fieldIndex {
 		input = input + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render(label),
@@ -953,7 +952,7 @@ func (m *CreditCardsModel) renderAccountSelector() string {
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	if len(m.accounts) == 0 {
 		return lipgloss.JoinHorizontal(
 			lipgloss.Left,
@@ -961,10 +960,10 @@ func (m *CreditCardsModel) renderAccountSelector() string {
 			style.WarningStyle.Render("No accounts available"),
 		)
 	}
-	
+
 	account := m.accounts[m.formModel.selectedAccount]
 	display := fmt.Sprintf("%s (R$ %.2f)", account.Name, account.Balance.Amount())
-	
+
 	var selector string
 	if m.formModel.focusedField == 3 {
 		selector = style.FocusedInputStyle.Width(30).Render("< " + display + " >")
@@ -972,7 +971,7 @@ func (m *CreditCardsModel) renderAccountSelector() string {
 	} else {
 		selector = style.InputStyle.Width(30).Render(display)
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render("Linked Account:"),
@@ -986,33 +985,33 @@ func (m *CreditCardsModel) renderFormButtons() string {
 	if m.formModel.editing {
 		submitText = "Update Card"
 	}
-	
+
 	var submitStyle, cancelStyle lipgloss.Style
-	
+
 	// Submit button styling
 	if m.formModel.focusedField == 4 {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 	} else {
 		submitStyle = style.SecondaryButtonStyle
 	}
-	
+
 	// Cancel button styling
 	if m.formModel.focusedField == 5 {
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	} else {
 		cancelStyle = style.SecondaryButtonStyle
 	}
-	
+
 	submitBtn := submitStyle.Render(submitText)
 	cancelBtn := cancelStyle.Render("Cancel")
-	
+
 	// Add focus indicators
 	if m.formModel.focusedField == 4 {
 		submitBtn = submitBtn + " ◄"
 	} else if m.formModel.focusedField == 5 {
 		cancelBtn = cancelBtn + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		submitBtn,
@@ -1032,33 +1031,33 @@ func (m *CreditCardsModel) renderCreditCardDetails() string {
 	if m.selectedIndex >= len(m.creditCards) {
 		return style.ErrorStyle.Render("No credit card selected")
 	}
-	
+
 	card := m.creditCards[m.selectedIndex]
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render("💳 Credit Card Details")
 	sections = append(sections, title)
-	
+
 	// Main card info
 	mainInfo := m.renderCardMainInfo(card)
 	sections = append(sections, mainInfo)
-	
+
 	// Utilization visualization
 	utilization := m.renderUtilizationVisualization(card)
 	sections = append(sections, utilization)
-	
+
 	// Account and due date info
 	additionalInfo := m.renderCardAdditionalInfo(card)
 	sections = append(sections, additionalInfo)
-	
+
 	// Actions
 	actions := m.renderDetailsActions()
 	sections = append(sections, actions)
-	
+
 	help := "[Esc/Enter] Back • [p] Make Payment • [e] Edit • [d] Delete"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -1069,19 +1068,19 @@ func (m *CreditCardsModel) renderCardMainInfo(card *entity.CreditCard) string {
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	var info []string
-	
+
 	info = append(info, style.HeaderStyle.Render("Card Information"))
 	info = append(info, fmt.Sprintf("Name: %s", card.Name))
 	info = append(info, fmt.Sprintf("Last 4 Digits: •••• %s", card.LastFourDigits))
 	info = append(info, fmt.Sprintf("Credit Limit: R$ %.2f", card.CreditLimit.Amount()))
 	info = append(info, fmt.Sprintf("Current Balance: R$ %.2f", card.CurrentBalance.Amount()))
-	
+
 	available, _ := card.GetAvailableCredit()
-	info = append(info, fmt.Sprintf("Available Credit: %s", 
+	info = append(info, fmt.Sprintf("Available Credit: %s",
 		style.SuccessStyle.Render(fmt.Sprintf("R$ %.2f", available.Amount()))))
-	
+
 	content := strings.Join(info, "\n")
 	return infoStyle.Render(content)
 }
@@ -1093,31 +1092,31 @@ func (m *CreditCardsModel) renderUtilizationVisualization(card *entity.CreditCar
 		BorderForeground(style.Warning).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	var content []string
-	
+
 	content = append(content, style.HeaderStyle.Render("Credit Utilization"))
-	
+
 	utilization := card.GetUtilizationPercentage()
-	
+
 	// Large progress bar
 	bar := m.renderProgressBar(utilization, 40)
 	content = append(content, bar)
-	
+
 	// Percentage and amount
 	color := m.getUtilizationColor(utilization)
 	percentStr := lipgloss.NewStyle().
 		Foreground(color).
 		Bold(true).
 		Render(fmt.Sprintf("%.1f%%", utilization))
-	
-	details := fmt.Sprintf("%s - R$ %.2f of R$ %.2f used", 
-		percentStr, 
+
+	details := fmt.Sprintf("%s - R$ %.2f of R$ %.2f used",
+		percentStr,
 		card.CurrentBalance.Amount(),
 		card.CreditLimit.Amount())
-	
+
 	content = append(content, details)
-	
+
 	// Utilization status message
 	var status string
 	if utilization < 30 {
@@ -1128,7 +1127,7 @@ func (m *CreditCardsModel) renderUtilizationVisualization(card *entity.CreditCar
 		status = style.ErrorStyle.Render("⚠ High utilization - Consider paying down balance")
 	}
 	content = append(content, "", status)
-	
+
 	return utilizationStyle.Render(strings.Join(content, "\n"))
 }
 
@@ -1139,21 +1138,21 @@ func (m *CreditCardsModel) renderCardAdditionalInfo(card *entity.CreditCard) str
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	var info []string
-	
+
 	info = append(info, style.HeaderStyle.Render("Additional Information"))
-	
+
 	// Linked account
 	accountName := m.getAccountName(card.AccountID)
 	info = append(info, fmt.Sprintf("Linked Account: %s", accountName))
-	
+
 	// Due date information
 	info = append(info, fmt.Sprintf("Due Day: %d of each month", card.DueDay))
-	
+
 	nextDue := m.getNextDueDate(card.DueDay)
 	daysUntilDue := int(time.Until(nextDue).Hours() / 24)
-	
+
 	var dueStatus string
 	if daysUntilDue <= 3 {
 		dueStatus = style.ErrorStyle.Render(fmt.Sprintf("%d days", daysUntilDue))
@@ -1162,15 +1161,15 @@ func (m *CreditCardsModel) renderCardAdditionalInfo(card *entity.CreditCard) str
 	} else {
 		dueStatus = style.InfoStyle.Render(fmt.Sprintf("%d days", daysUntilDue))
 	}
-	
-	info = append(info, fmt.Sprintf("Next Due Date: %s (%s)", 
+
+	info = append(info, fmt.Sprintf("Next Due Date: %s (%s)",
 		nextDue.Format("Monday, Jan 2, 2006"), dueStatus))
-	
+
 	// Timestamps
 	info = append(info, "")
 	info = append(info, fmt.Sprintf("Created: %s", card.CreatedAt.Format("2006-01-02 15:04")))
 	info = append(info, fmt.Sprintf("Updated: %s", card.UpdatedAt.Format("2006-01-02 15:04")))
-	
+
 	content := strings.Join(info, "\n")
 	return additionalStyle.Render(content)
 }
@@ -1182,16 +1181,16 @@ func (m *CreditCardsModel) renderDetailsActions() string {
 		BorderForeground(style.Primary).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	title := style.HeaderStyle.Render("Quick Actions")
-	
+
 	actions := []string{
 		"[i] View Invoices - See monthly statements",
 		"[p] Make Payment - Pay down your balance",
 		"[e] Edit Card - Update card information",
 		"[d] Delete Card - Remove this credit card",
 	}
-	
+
 	content := title + "\n" + strings.Join(actions, "\n")
 	return actionsStyle.Render(content)
 }
@@ -1203,19 +1202,19 @@ func (m *CreditCardsModel) submitPayment() (tea.Model, tea.Cmd) {
 		m.err = fmt.Errorf("invalid payment amount")
 		return m, nil
 	}
-	
+
 	if m.paymentModel.card == nil {
 		m.err = fmt.Errorf("no card selected for payment")
 		return m, nil
 	}
-	
+
 	// Check if amount exceeds current balance
 	if amount > m.paymentModel.card.CurrentBalance.Amount() {
 		amount = m.paymentModel.card.CurrentBalance.Amount()
 	}
-	
+
 	m.loading = true
-	
+
 	return m, func() tea.Msg {
 		err := m.creditCardUseCase.MakePayment(
 			m.ctx,
@@ -1226,7 +1225,7 @@ func (m *CreditCardsModel) submitPayment() (tea.Model, tea.Cmd) {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		
+
 		return creditCardActionMsg{}
 	}
 }
@@ -1235,51 +1234,51 @@ func (m *CreditCardsModel) renderPaymentForm() string {
 	if m.paymentModel.card == nil {
 		return style.ErrorStyle.Render("No card selected for payment")
 	}
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render("💰 Make Payment")
 	sections = append(sections, title)
-	
+
 	// Card info
 	cardInfo := m.renderPaymentCardInfo()
 	sections = append(sections, cardInfo)
-	
+
 	// Payment form
 	form := m.renderPaymentFormFields()
 	sections = append(sections, form)
-	
+
 	if m.err != nil {
 		errorMsg := style.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 		sections = append(sections, errorMsg)
 	}
-	
+
 	help := "[Tab] Navigate • [Enter] Submit • [Esc] Cancel"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
 // Render payment card info
 func (m *CreditCardsModel) renderPaymentCardInfo() string {
 	card := m.paymentModel.card
-	
+
 	infoStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	var info []string
-	
+
 	info = append(info, style.HeaderStyle.Render("Card Information"))
 	info = append(info, fmt.Sprintf("Card: %s (•••• %s)", card.Name, card.LastFourDigits))
-	info = append(info, fmt.Sprintf("Current Balance: %s", 
+	info = append(info, fmt.Sprintf("Current Balance: %s",
 		style.ErrorStyle.Render(fmt.Sprintf("R$ %.2f", card.CurrentBalance.Amount()))))
-	
+
 	available, _ := card.GetAvailableCredit()
 	info = append(info, fmt.Sprintf("Available After Payment: R$ %.2f", available.Amount()))
-	
+
 	// Get linked account
 	var accountBalance float64
 	accountName := "Unknown Account"
@@ -1290,11 +1289,11 @@ func (m *CreditCardsModel) renderPaymentCardInfo() string {
 			break
 		}
 	}
-	
+
 	info = append(info, "")
 	info = append(info, fmt.Sprintf("Payment From: %s", accountName))
 	info = append(info, fmt.Sprintf("Account Balance: R$ %.2f", accountBalance))
-	
+
 	content := strings.Join(info, "\n")
 	return infoStyle.Render(content)
 }
@@ -1306,34 +1305,34 @@ func (m *CreditCardsModel) renderPaymentFormFields() string {
 		BorderForeground(style.Border).
 		Padding(2, 4).
 		MarginTop(1)
-	
+
 	var fields []string
-	
+
 	// Amount input
 	labelStyle := lipgloss.NewStyle().
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	var inputStyle lipgloss.Style
 	if m.paymentModel.focusedField == 0 {
 		inputStyle = style.FocusedInputStyle.Width(30)
 	} else {
 		inputStyle = style.InputStyle.Width(30)
 	}
-	
+
 	input := inputStyle.Render(m.paymentModel.amountInput)
 	if m.paymentModel.focusedField == 0 {
 		input = input + " ◄"
 	}
-	
+
 	amountField := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render("Payment Amount (R$):"),
 		input,
 	)
 	fields = append(fields, amountField)
-	
+
 	// Quick amount suggestions
 	if m.paymentModel.card != nil {
 		balance := m.paymentModel.card.CurrentBalance.Amount()
@@ -1345,12 +1344,12 @@ func (m *CreditCardsModel) renderPaymentFormFields() string {
 		suggestionText := style.InfoStyle.Render(strings.Join(suggestions, " | "))
 		fields = append(fields, suggestionText)
 	}
-	
+
 	// Buttons
 	fields = append(fields, "")
-	
+
 	var submitStyle, cancelStyle lipgloss.Style
-	
+
 	if m.paymentModel.focusedField == 0 {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 		cancelStyle = style.SecondaryButtonStyle
@@ -1358,23 +1357,23 @@ func (m *CreditCardsModel) renderPaymentFormFields() string {
 		submitStyle = style.SecondaryButtonStyle
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	}
-	
+
 	submitBtn := submitStyle.Render("Make Payment")
 	cancelBtn := cancelStyle.Render("Cancel")
-	
+
 	if m.paymentModel.focusedField == 0 {
 		submitBtn = submitBtn + " ◄"
 	} else {
 		cancelBtn = cancelBtn + " ◄"
 	}
-	
+
 	buttons := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		submitBtn,
 		lipgloss.NewStyle().MarginLeft(2).Render(cancelBtn),
 	)
 	fields = append(fields, buttons)
-	
+
 	content := strings.Join(fields, "\n")
 	return formStyle.Render(content)
 }
@@ -1384,9 +1383,9 @@ func (m *CreditCardsModel) deleteCreditCard() tea.Msg {
 	if m.selectedIndex >= len(m.creditCards) {
 		return errMsg{err: fmt.Errorf("no credit card selected")}
 	}
-	
+
 	_ = m.creditCards[m.selectedIndex]
-	
+
 	// TODO: Implement delete in use case
 	// For now, we just return an error
 	return errMsg{err: fmt.Errorf("delete credit card not implemented yet")}
@@ -1396,46 +1395,46 @@ func (m *CreditCardsModel) renderConfirmDialog() string {
 	if m.selectedIndex >= len(m.creditCards) {
 		return style.ErrorStyle.Render("No credit card selected")
 	}
-	
+
 	card := m.creditCards[m.selectedIndex]
-	
+
 	dialogStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Danger).
 		Padding(2, 4).
 		MarginTop(5)
-	
+
 	title := style.ErrorStyle.Render("⚠️  Confirm Delete")
-	
+
 	available, _ := card.GetAvailableCredit()
-	
+
 	var warningMessages []string
-	warningMessages = append(warningMessages, 
+	warningMessages = append(warningMessages,
 		fmt.Sprintf("Are you sure you want to delete credit card '%s'?", card.Name))
 	warningMessages = append(warningMessages, "")
-	warningMessages = append(warningMessages, 
+	warningMessages = append(warningMessages,
 		fmt.Sprintf("Card: •••• %s", card.LastFourDigits))
-	warningMessages = append(warningMessages, 
+	warningMessages = append(warningMessages,
 		fmt.Sprintf("Current Balance: R$ %.2f", card.CurrentBalance.Amount()))
-	warningMessages = append(warningMessages, 
+	warningMessages = append(warningMessages,
 		fmt.Sprintf("Available Credit: R$ %.2f", available.Amount()))
-	
+
 	// Add extra warning if there's a balance
 	if card.CurrentBalance.Amount() > 0 {
 		warningMessages = append(warningMessages, "")
-		warningMessages = append(warningMessages, 
+		warningMessages = append(warningMessages,
 			style.WarningStyle.Render("⚠️  This card has an outstanding balance!"))
-		warningMessages = append(warningMessages, 
+		warningMessages = append(warningMessages,
 			style.WarningStyle.Render("   Please pay off the balance before deleting."))
 	}
-	
+
 	warningMessages = append(warningMessages, "")
-	warningMessages = append(warningMessages, 
+	warningMessages = append(warningMessages,
 		style.WarningStyle.Render("This action cannot be undone!"))
-	
+
 	message := strings.Join(warningMessages, "\n")
 	help := "[y] Yes, Delete • [n] Cancel"
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
@@ -1444,7 +1443,7 @@ func (m *CreditCardsModel) renderConfirmDialog() string {
 		"",
 		help,
 	)
-	
+
 	return dialogStyle.Render(content)
 }
 
@@ -1453,14 +1452,14 @@ func (m *CreditCardsModel) renderInvoicesList() string {
 	if m.selectedIndex >= len(m.creditCards) {
 		return ""
 	}
-	
+
 	card := m.creditCards[m.selectedIndex]
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render(fmt.Sprintf("📋 Invoices for %s", card.Name))
 	sections = append(sections, title)
-	
+
 	if len(m.invoices) == 0 {
 		empty := style.InfoStyle.Render("No invoices found for this credit card.")
 		sections = append(sections, empty)
@@ -1468,10 +1467,10 @@ func (m *CreditCardsModel) renderInvoicesList() string {
 		table := m.renderInvoicesTable()
 		sections = append(sections, table)
 	}
-	
+
 	help := "[↑/↓] Navigate • [Enter] View Details • [b/Esc] Back"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -1481,16 +1480,16 @@ func (m *CreditCardsModel) renderInvoicesTable() string {
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	headers := []string{"Status", "Month", "Period", "Total", "Paid", "Balance", "Due Date"}
 	headerRow := style.TableHeaderStyle.Render(
-		fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s", 
+		fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s",
 			headers[0], headers[1], headers[2], headers[3], headers[4], headers[5], headers[6]),
 	)
-	
+
 	var rows []string
 	rows = append(rows, headerRow)
-	
+
 	for i, invoice := range m.invoices {
 		status := m.getInvoiceStatusIcon(invoice.Status)
 		month := invoice.ReferenceMonth
@@ -1499,24 +1498,24 @@ func (m *CreditCardsModel) renderInvoicesTable() string {
 		paid := invoice.TotalPayments.String()
 		balance := invoice.ClosingBalance.String()
 		dueDate := invoice.DueDate.Format("Jan 02, 2006")
-		
+
 		// Color code due date if overdue
 		if invoice.Status == entity.InvoiceStatusOverdue {
 			dueDate = style.ErrorStyle.Render(dueDate)
 		}
-		
-		row := fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s", 
+
+		row := fmt.Sprintf("%-8s %-8s %-20s %-12s %-12s %-12s %s",
 			status, month, truncateString(period, 20), total, paid, balance, dueDate)
-		
+
 		if i == m.selectedInvoiceIndex {
 			row = style.SelectedMenuItemStyle.Render("► " + row)
 		} else {
 			row = style.MenuItemStyle.Render("  " + row)
 		}
-		
+
 		rows = append(rows, row)
 	}
-	
+
 	table := strings.Join(rows, "\n")
 	return tableStyle.Render(table)
 }
@@ -1525,21 +1524,21 @@ func (m *CreditCardsModel) renderInvoiceDetails() string {
 	if m.selectedInvoice == nil {
 		return style.ErrorStyle.Render("No invoice selected")
 	}
-	
+
 	invoice := m.selectedInvoice
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render(fmt.Sprintf("📋 Invoice Details - %s", invoice.ReferenceMonth))
 	sections = append(sections, title)
-	
+
 	// Invoice summary
 	summaryStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	summary := []string{
 		fmt.Sprintf("Status: %s %s", m.getInvoiceStatusIcon(invoice.Status), m.getInvoiceStatusName(invoice.Status)),
 		fmt.Sprintf("Statement Period: %s", invoice.GetStatementPeriod()),
@@ -1550,9 +1549,9 @@ func (m *CreditCardsModel) renderInvoiceDetails() string {
 		fmt.Sprintf("Total Payments: %s", invoice.TotalPayments.String()),
 		fmt.Sprintf("Closing Balance: %s", invoice.ClosingBalance.String()),
 	}
-	
+
 	sections = append(sections, summaryStyle.Render(strings.Join(summary, "\n")))
-	
+
 	// Transactions
 	if len(m.invoiceTransactions) > 0 {
 		transStyle := lipgloss.NewStyle().
@@ -1560,17 +1559,17 @@ func (m *CreditCardsModel) renderInvoiceDetails() string {
 			BorderForeground(style.Info).
 			Padding(1, 2).
 			MarginTop(1)
-		
+
 		transHeader := style.HeaderStyle.Render("Transactions")
 		// TODO: Render actual transactions when implemented
 		transContent := style.InfoStyle.Render("Transaction list will be displayed here")
-		
-		sections = append(sections, transStyle.Render(transHeader + "\n\n" + transContent))
+
+		sections = append(sections, transStyle.Render(transHeader+"\n\n"+transContent))
 	}
-	
+
 	help := "[b/Esc] Back to Invoices"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 

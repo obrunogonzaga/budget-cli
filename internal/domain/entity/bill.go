@@ -35,7 +35,7 @@ func NewBill(name, description string, startDate, endDate, dueDate time.Time, to
 	if endDate.Before(startDate) {
 		return nil, fmt.Errorf("end date cannot be before start date")
 	}
-	
+
 	if dueDate.Before(endDate) {
 		return nil, fmt.Errorf("due date cannot be before end date")
 	}
@@ -61,10 +61,10 @@ func (b *Bill) AddPayment(amount valueobject.Money) error {
 	if err != nil {
 		return err
 	}
-	
+
 	b.PaidAmount = newPaidAmount
 	b.UpdatedAt = time.Now()
-	
+
 	b.updateStatus()
 	return nil
 }
@@ -81,7 +81,7 @@ func (b *Bill) Close() error {
 	if b.Status == BillStatusPaid || b.Status == BillStatusClosed {
 		return fmt.Errorf("bill is already %s", b.Status)
 	}
-	
+
 	b.Status = BillStatusClosed
 	b.UpdatedAt = time.Now()
 	return nil

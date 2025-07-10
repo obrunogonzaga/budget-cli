@@ -7,7 +7,7 @@ import (
 	"financli/internal/application/usecase"
 	"financli/internal/interfaces/tui/screen"
 	"financli/internal/interfaces/tui/style"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -32,27 +32,27 @@ const (
 )
 
 type App struct {
-	currentScreen    Screen
-	dashboardModel   tea.Model
-	accountsModel    tea.Model
-	creditCardsModel tea.Model
-	billsModel       tea.Model
+	currentScreen     Screen
+	dashboardModel    tea.Model
+	accountsModel     tea.Model
+	creditCardsModel  tea.Model
+	billsModel        tea.Model
 	transactionsModel tea.Model
-	peopleModel      tea.Model
-	reportsModel     tea.Model
-	width            int
-	height           int
-	ctx              context.Context
+	peopleModel       tea.Model
+	reportsModel      tea.Model
+	width             int
+	height            int
+	ctx               context.Context
 }
 
 type UseCases struct {
-	Account             *usecase.AccountUseCase
-	CreditCard          *usecase.CreditCardUseCase
-	CreditCardInvoice   *usecase.CreditCardInvoiceUseCase
-	Bill                *usecase.BillUseCase
-	Transaction         *usecase.TransactionUseCase
-	Person              *usecase.PersonUseCase
-	Report              *usecase.ReportUseCase
+	Account           *usecase.AccountUseCase
+	CreditCard        *usecase.CreditCardUseCase
+	CreditCardInvoice *usecase.CreditCardInvoiceUseCase
+	Bill              *usecase.BillUseCase
+	Transaction       *usecase.TransactionUseCase
+	Person            *usecase.PersonUseCase
+	Report            *usecase.ReportUseCase
 }
 
 func NewApp(ctx context.Context, useCases UseCases) *App {
@@ -62,7 +62,7 @@ func NewApp(ctx context.Context, useCases UseCases) *App {
 		accountsModel:     screen.NewAccountsModel(ctx, useCases.Account),
 		creditCardsModel:  screen.NewCreditCardsModel(ctx, useCases.CreditCard, useCases.CreditCardInvoice, useCases.Account),
 		billsModel:        screen.NewBillsModel(ctx, useCases.Bill),
-		transactionsModel: screen.NewTransactionsModel(ctx, useCases.Transaction, useCases.Account, useCases.CreditCard, useCases.Bill, useCases.Person),
+		transactionsModel: screen.NewTransactionsModel(ctx, useCases.Transaction, useCases.Account, useCases.CreditCard, useCases.CreditCardInvoice, useCases.Bill, useCases.Person),
 		peopleModel:       screen.NewPeopleModel(ctx, useCases.Person),
 		reportsModel:      screen.NewReportsModel(ctx, useCases.Report, useCases.Person, useCases.Bill),
 		ctx:               ctx,
@@ -98,9 +98,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if checker, ok := a.billsModel.(FormModeChecker); ok {
 				isInFormMode = checker.IsInFormMode()
 			}
-		// Add other screens here when they implement forms
+			// Add other screens here when they implement forms
 		}
-		
+
 		// Only handle menu navigation if not in form mode
 		if !isInFormMode {
 			switch msg.String() {
@@ -135,11 +135,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Quit
 			}
 		}
-		
+
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		
+
 	default:
 		// Handle custom messages from screens
 		switch msg.(type) {
@@ -148,7 +148,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.dashboardModel.Init()
 		}
 	}
-	
+
 	var cmd tea.Cmd
 	switch a.currentScreen {
 	case DashboardScreen:
@@ -166,13 +166,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ReportsScreen:
 		a.reportsModel, cmd = a.reportsModel.Update(msg)
 	}
-	
+
 	return a, cmd
 }
 
 func (a *App) View() string {
 	header := a.renderHeader()
-	
+
 	var content string
 	switch a.currentScreen {
 	case DashboardScreen:
@@ -190,9 +190,9 @@ func (a *App) View() string {
 	case ReportsScreen:
 		content = a.reportsModel.View()
 	}
-	
+
 	help := a.renderHelp()
-	
+
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		header,
@@ -211,7 +211,7 @@ func (a *App) renderHeader() string {
 		"[6] People",
 		"[7] Reports",
 	}
-	
+
 	for i, item := range menu {
 		if Screen(i) == a.currentScreen {
 			menu[i] = style.SelectedMenuItemStyle.Render(fmt.Sprintf("● %s", item[4:]))
@@ -219,11 +219,11 @@ func (a *App) renderHeader() string {
 			menu[i] = style.MenuItemStyle.Render(item)
 		}
 	}
-	
+
 	menuBar := lipgloss.JoinHorizontal(lipgloss.Top, menu...)
-	
+
 	title := style.TitleStyle.Render("💰 FinanCLI - Personal Finance Manager")
-	
+
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		title,

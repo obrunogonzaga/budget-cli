@@ -91,24 +91,24 @@ func (t *Transaction) AddSharedExpense(personID uuid.UUID, percentage float64) e
 	if percentage <= 0 || percentage > 100 {
 		return fmt.Errorf("percentage must be between 0 and 100")
 	}
-	
+
 	totalPercentage := percentage
 	for _, shared := range t.SharedWith {
 		totalPercentage += shared.Percentage
 	}
-	
+
 	if totalPercentage > 100 {
 		return fmt.Errorf("total shared percentage cannot exceed 100%%")
 	}
-	
+
 	sharedAmount := t.Amount.Multiply(percentage / 100)
-	
+
 	t.SharedWith = append(t.SharedWith, SharedExpense{
 		PersonID:   personID,
 		Amount:     sharedAmount,
 		Percentage: percentage,
 	})
-	
+
 	t.UpdatedAt = time.Now()
 	return nil
 }
@@ -117,12 +117,12 @@ func (t *Transaction) SplitEqually(personIDs []uuid.UUID) error {
 	if len(personIDs) == 0 {
 		return fmt.Errorf("must provide at least one person to split with")
 	}
-	
+
 	percentage := 50.0
 	perPersonPercentage := percentage / float64(len(personIDs))
-	
+
 	t.SharedWith = []SharedExpense{}
-	
+
 	for _, personID := range personIDs {
 		sharedAmount := t.Amount.Multiply(perPersonPercentage / 100)
 		t.SharedWith = append(t.SharedWith, SharedExpense{
@@ -131,7 +131,7 @@ func (t *Transaction) SplitEqually(personIDs []uuid.UUID) error {
 			Percentage: perPersonPercentage,
 		})
 	}
-	
+
 	t.UpdatedAt = time.Now()
 	return nil
 }
@@ -141,7 +141,7 @@ func (t *Transaction) GetPersonalAmount() valueobject.Money {
 	for _, shared := range t.SharedWith {
 		totalSharedPercentage += shared.Percentage
 	}
-	
+
 	personalPercentage := 100.0 - totalSharedPercentage
 	return t.Amount.Multiply(personalPercentage / 100)
 }

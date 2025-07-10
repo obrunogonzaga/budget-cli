@@ -21,11 +21,11 @@ func NewPersonUseCase(personRepo repository.PersonRepository) *PersonUseCase {
 
 func (uc *PersonUseCase) CreatePerson(ctx context.Context, name, email, phone string) (*entity.Person, error) {
 	person := entity.NewPerson(name, email, phone)
-	
+
 	if err := uc.personRepo.Create(ctx, person); err != nil {
 		return nil, fmt.Errorf("failed to create person: %w", err)
 	}
-	
+
 	return person, nil
 }
 
@@ -42,9 +42,9 @@ func (uc *PersonUseCase) UpdatePerson(ctx context.Context, id uuid.UUID, name, e
 	if err != nil {
 		return err
 	}
-	
+
 	person.Update(name, email, phone)
-	
+
 	return uc.personRepo.Update(ctx, person)
 }
 

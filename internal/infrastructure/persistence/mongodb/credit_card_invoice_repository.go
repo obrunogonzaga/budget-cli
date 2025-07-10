@@ -36,16 +36,16 @@ func (r *creditCardInvoiceRepository) Update(ctx context.Context, invoice *entit
 	model := CreditCardInvoiceToModel(invoice)
 	filter := bson.M{"uuid": invoice.ID.String()}
 	update := bson.M{"$set": model}
-	
+
 	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("failed to update credit card invoice: %w", err)
 	}
-	
+
 	if result.MatchedCount == 0 {
 		return fmt.Errorf("credit card invoice not found")
 	}
-	
+
 	return nil
 }
 
@@ -55,18 +55,18 @@ func (r *creditCardInvoiceRepository) Delete(ctx context.Context, id uuid.UUID) 
 	if err != nil {
 		return fmt.Errorf("failed to delete credit card invoice: %w", err)
 	}
-	
+
 	if result.DeletedCount == 0 {
 		return fmt.Errorf("credit card invoice not found")
 	}
-	
+
 	return nil
 }
 
 func (r *creditCardInvoiceRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.CreditCardInvoice, error) {
 	var model CreditCardInvoiceModel
 	filter := bson.M{"uuid": id.String()}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&model)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -74,34 +74,34 @@ func (r *creditCardInvoiceRepository) FindByID(ctx context.Context, id uuid.UUID
 		}
 		return nil, fmt.Errorf("failed to find credit card invoice: %w", err)
 	}
-	
+
 	return CreditCardInvoiceFromModel(model)
 }
 
 func (r *creditCardInvoiceRepository) FindByCreditCard(ctx context.Context, creditCardID uuid.UUID) ([]*entity.CreditCardInvoice, error) {
 	filter := bson.M{"credit_card_uuid": creditCardID.String()}
 	opts := options.Find().SetSort(bson.D{{Key: "reference_month", Value: -1}}) // Sort by reference month descending
-	
+
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find credit card invoices: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var invoices []*entity.CreditCardInvoice
 	for cursor.Next(ctx) {
 		var model CreditCardInvoiceModel
 		if err := cursor.Decode(&model); err != nil {
 			return nil, fmt.Errorf("failed to decode credit card invoice: %w", err)
 		}
-		
+
 		invoice, err := CreditCardInvoiceFromModel(model)
 		if err != nil {
 			return nil, err
 		}
 		invoices = append(invoices, invoice)
 	}
-	
+
 	return invoices, nil
 }
 
@@ -111,7 +111,7 @@ func (r *creditCardInvoiceRepository) FindByMonth(ctx context.Context, creditCar
 		"credit_card_uuid": creditCardID.String(),
 		"reference_month":  referenceMonth,
 	}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&model)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -119,7 +119,7 @@ func (r *creditCardInvoiceRepository) FindByMonth(ctx context.Context, creditCar
 		}
 		return nil, fmt.Errorf("failed to find credit card invoice: %w", err)
 	}
-	
+
 	return CreditCardInvoiceFromModel(model)
 }
 
@@ -129,7 +129,7 @@ func (r *creditCardInvoiceRepository) FindOpenInvoice(ctx context.Context, credi
 		"credit_card_uuid": creditCardID.String(),
 		"status":           string(entity.InvoiceStatusOpen),
 	}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&model)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -137,7 +137,7 @@ func (r *creditCardInvoiceRepository) FindOpenInvoice(ctx context.Context, credi
 		}
 		return nil, fmt.Errorf("failed to find open credit card invoice: %w", err)
 	}
-	
+
 	return CreditCardInvoiceFromModel(model)
 }
 
@@ -150,27 +150,27 @@ func (r *creditCardInvoiceRepository) FindByDateRange(ctx context.Context, credi
 		},
 	}
 	opts := options.Find().SetSort(bson.D{{Key: "opening_date", Value: -1}})
-	
+
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find credit card invoices by date range: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var invoices []*entity.CreditCardInvoice
 	for cursor.Next(ctx) {
 		var model CreditCardInvoiceModel
 		if err := cursor.Decode(&model); err != nil {
 			return nil, fmt.Errorf("failed to decode credit card invoice: %w", err)
 		}
-		
+
 		invoice, err := CreditCardInvoiceFromModel(model)
 		if err != nil {
 			return nil, err
 		}
 		invoices = append(invoices, invoice)
 	}
-	
+
 	return invoices, nil
 }
 
@@ -180,26 +180,26 @@ func (r *creditCardInvoiceRepository) FindByStatus(ctx context.Context, creditCa
 		"status":           string(status),
 	}
 	opts := options.Find().SetSort(bson.D{{Key: "due_date", Value: 1}}) // Sort by due date ascending
-	
+
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find credit card invoices by status: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var invoices []*entity.CreditCardInvoice
 	for cursor.Next(ctx) {
 		var model CreditCardInvoiceModel
 		if err := cursor.Decode(&model); err != nil {
 			return nil, fmt.Errorf("failed to decode credit card invoice: %w", err)
 		}
-		
+
 		invoice, err := CreditCardInvoiceFromModel(model)
 		if err != nil {
 			return nil, err
 		}
 		invoices = append(invoices, invoice)
 	}
-	
+
 	return invoices, nil
 }

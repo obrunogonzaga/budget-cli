@@ -8,7 +8,6 @@ import (
 
 // Placeholder implementations for other screens
 
-
 // NewCreditCardsModel is now implemented in credit_cards.go
 
 // NewBillsModel is now implemented in bills.go

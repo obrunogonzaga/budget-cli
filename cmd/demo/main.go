@@ -102,9 +102,9 @@ func runInMemoryDemo() {
 		return
 	}
 
-	fmt.Printf("📄 Bill: %s - Total: %s (Due: %s)\n", 
-		bill.Name, 
-		bill.TotalAmount.String(), 
+	fmt.Printf("📄 Bill: %s - Total: %s (Due: %s)\n",
+		bill.Name,
+		bill.TotalAmount.String(),
 		bill.DueDate.Format("Jan 02"),
 	)
 
@@ -158,7 +158,7 @@ func runInMemoryDemo() {
 
 	fmt.Println("\n📊 Financial Summary:")
 	fmt.Println("====================")
-	fmt.Printf("Total Assets: %s\n", 
+	fmt.Printf("Total Assets: %s\n",
 		func() string {
 			total, _ := checkingAccount.Balance.Add(savingsAccount.Balance)
 			return total.String()
@@ -229,13 +229,13 @@ func runFullDemo(ctx context.Context, db *mongo.Database) {
 	fmt.Printf("✅ Created person: %s\n", person.Name)
 
 	fmt.Println("📄 Creating bill...")
-	bill, err := billUC.CreateBill(ctx, 
-		"Demo Bill", 
-		"Test bill", 
+	bill, err := billUC.CreateBill(ctx,
+		"Demo Bill",
+		"Test bill",
 		time.Now().AddDate(0, 0, -10),
 		time.Now().AddDate(0, 0, 10),
 		time.Now().AddDate(0, 0, 20),
-		500.0, 
+		500.0,
 		"BRL",
 	)
 	if err != nil {
