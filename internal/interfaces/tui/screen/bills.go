@@ -932,9 +932,13 @@ func (m *BillsModel) deleteBill() tea.Msg {
 		return errMsg{err: fmt.Errorf("no bill selected")}
 	}
 
-	// TODO: Implement DeleteBill in use case
-	// For now, return an error
-	return errMsg{err: fmt.Errorf("bill deletion not implemented in backend")}
+	bill := m.bills[m.selectedIndex]
+	err := m.billUseCase.DeleteBill(m.ctx, bill.ID)
+	if err != nil {
+		return errMsg{err: err}
+	}
+
+	return billActionMsg{}
 }
 
 func (m *BillsModel) submitForm() (tea.Model, tea.Cmd) {

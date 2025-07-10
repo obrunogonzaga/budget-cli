@@ -82,6 +82,21 @@ func (uc *BillUseCase) CloseBill(ctx context.Context, billID uuid.UUID) error {
 	return uc.billRepo.Update(ctx, bill)
 }
 
+func (uc *BillUseCase) DeleteBill(ctx context.Context, billID uuid.UUID) error {
+	// Check if bill exists before deleting
+	_, err := uc.billRepo.FindByID(ctx, billID)
+	if err != nil {
+		return fmt.Errorf("bill not found: %w", err)
+	}
+
+	// Delete the bill
+	if err := uc.billRepo.Delete(ctx, billID); err != nil {
+		return fmt.Errorf("failed to delete bill: %w", err)
+	}
+
+	return nil
+}
+
 func (uc *BillUseCase) GetBillsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*entity.Bill, error) {
 	return uc.billRepo.FindByDateRange(ctx, startDate, endDate)
 }
