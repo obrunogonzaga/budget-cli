@@ -96,6 +96,11 @@ type TransactionFormModel struct {
 	amountInput      string
 	dateInput        string
 
+	// Sharing fields
+	enableSharing    bool
+	selectedPerson   int
+	sharePercentage  string
+
 	// Navigation
 	focusedField int
 
@@ -174,8 +179,9 @@ func NewTransactionsModel(ctx context.Context, txnUC *usecase.TransactionUseCase
 		itemsPerPage:             10,
 		currentPage:              0,
 		formModel: &TransactionFormModel{
-			date:      time.Now().Format("2006-01-02"),
-			dateInput: time.Now().Format("2006-01-02"),
+			date:            time.Now().Format("2006-01-02"),
+			dateInput:       time.Now().Format("2006-01-02"),
+			sharePercentage: "50.0",
 		},
 		filterModel: &TransactionFilterModel{
 			selectedCategories: make(map[entity.TransactionCategory]bool),
@@ -448,12 +454,15 @@ func (m *TransactionsModel) resetForm() {
 	m.formModel = &TransactionFormModel{
 		date:             time.Now().Format("2006-01-02"),
 		dateInput:        time.Now().Format("2006-01-02"),
+		sharePercentage:  "50.0",
 		focusedField:     0,
 		selectedType:     0,
 		selectedCategory: 0,
 		selectedSource:   0,
 		selectedAccount:  0,
 		selectedCard:     0,
+		selectedPerson:   0,
+		enableSharing:    false,
 	}
 }
 
@@ -577,7 +586,19 @@ func (m *TransactionsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *TransactionsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	totalFields := 8 // description, type, category, amount, date, source, account/card, buttons
+	// Calculate total fields based on whether sharing is enabled
+	totalFields := 9 // description, type, category, amount, date, source, account/card, submit, cancel
+	if m.formModel.selectedType == 0 && m.formModel.enableSharing { // Expense with sharing
+		totalFields = 12 // + sharing toggle, person, percentage
+	}
+
+	// Calculate submit/cancel field indices
+	submitFieldIndex := 7
+	cancelFieldIndex := 8
+	if m.formModel.selectedType == 0 && m.formModel.enableSharing {
+		submitFieldIndex = 10
+		cancelFieldIndex = 11
+	}
 
 	switch msg.String() {
 	case "esc":
@@ -588,10 +609,10 @@ func (m *TransactionsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	case "shift+tab", "up":
 		m.formModel.focusedField = (m.formModel.focusedField - 1 + totalFields) % totalFields
 	case "enter":
-		if m.formModel.focusedField == 6 {
+		if m.formModel.focusedField == submitFieldIndex {
 			// Submit button
 			return m.submitForm()
-		} else if m.formModel.focusedField == 7 {
+		} else if m.formModel.focusedField == cancelFieldIndex {
 			// Cancel button
 			m.viewMode = TransactionViewList
 			m.resetForm()
@@ -1028,6 +1049,37 @@ func (m *TransactionsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 				}
 			}
 		}
+	case 7: // Sharing toggle
+		switch msg.String() {
+		case "left":
+			m.formModel.enableSharing = false
+		case "right":
+			m.formModel.enableSharing = true
+		}
+	case 8: // Person selection
+		if len(m.people) > 0 {
+			switch msg.String() {
+			case "left":
+				if m.formModel.selectedPerson > 0 {
+					m.formModel.selectedPerson--
+				}
+			case "right":
+				if m.formModel.selectedPerson < len(m.people)-1 {
+					m.formModel.selectedPerson++
+				}
+			}
+		}
+	case 9: // Share percentage
+		switch msg.String() {
+		case "backspace":
+			if len(m.formModel.sharePercentage) > 0 {
+				m.formModel.sharePercentage = m.formModel.sharePercentage[:len(m.formModel.sharePercentage)-1]
+			}
+		default:
+			if len(msg.String()) == 1 && (msg.String() >= "0" && msg.String() <= "9" || msg.String() == ".") {
+				m.formModel.sharePercentage += msg.String()
+			}
+		}
 	}
 
 	return m, nil
@@ -1084,9 +1136,23 @@ func (m *TransactionsModel) submitForm() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Validate sharing if enabled
+	if m.formModel.enableSharing && txnType == entity.TransactionTypeDebit {
+		if len(m.people) == 0 {
+			m.err = fmt.Errorf("no people available for sharing")
+			return m, nil
+		}
+
+		percentage, err := strconv.ParseFloat(m.formModel.sharePercentage, 64)
+		if err != nil || percentage <= 0 || percentage > 100 {
+			m.err = fmt.Errorf("invalid share percentage (must be between 0 and 100)")
+			return m, nil
+		}
+	}
+
 	// Create transaction
 	return m, func() tea.Msg {
-		_, err := m.transactionUseCase.CreateTransaction(
+		transaction, err := m.transactionUseCase.CreateTransaction(
 			m.ctx,
 			accountID,
 			creditCardID,
@@ -1099,6 +1165,17 @@ func (m *TransactionsModel) submitForm() (tea.Model, tea.Cmd) {
 		)
 		if err != nil {
 			return errMsg{err: err}
+		}
+
+		// Add sharing if enabled
+		if m.formModel.enableSharing && txnType == entity.TransactionTypeDebit && len(m.people) > 0 {
+			percentage, _ := strconv.ParseFloat(m.formModel.sharePercentage, 64)
+			selectedPerson := m.people[m.formModel.selectedPerson]
+			
+			err = m.transactionUseCase.AddSharedExpense(m.ctx, transaction.ID, selectedPerson.ID, percentage)
+			if err != nil {
+				return errMsg{err: fmt.Errorf("failed to add sharing: %w", err)}
+			}
 		}
 
 		return transactionActionMsg{}
@@ -1161,6 +1238,15 @@ func (m *TransactionsModel) renderForm() string {
 		fields = append(fields, m.renderAccountSelector())
 	} else {
 		fields = append(fields, m.renderCardSelector())
+	}
+
+	// Sharing options (only for expenses)
+	if m.formModel.selectedType == 0 { // Expense
+		fields = append(fields, m.renderSharingToggle())
+		if m.formModel.enableSharing {
+			fields = append(fields, m.renderPersonSelector())
+			fields = append(fields, m.renderFormField("Share % (0-100):", m.formModel.sharePercentage, 9))
+		}
 	}
 
 	// Buttons
@@ -1418,6 +1504,78 @@ func (m *TransactionsModel) getInvoiceInfo(cardID uuid.UUID) string {
 }
 
 // Render form buttons
+// Render sharing toggle
+func (m *TransactionsModel) renderSharingToggle() string {
+	labelStyle := lipgloss.NewStyle().
+		Foreground(style.Text).
+		Bold(true).
+		Width(20)
+
+	toggleOptions := []string{"❌ No sharing", "✅ Share expense"}
+	var options []string
+
+	for i, option := range toggleOptions {
+		isSelected := (i == 1 && m.formModel.enableSharing) || (i == 0 && !m.formModel.enableSharing)
+		if isSelected {
+			if m.formModel.focusedField == 7 {
+				options = append(options, style.SelectedMenuItemStyle.Render("► "+option))
+			} else {
+				options = append(options, style.InfoStyle.Render("• "+option))
+			}
+		} else {
+			options = append(options, style.MenuItemStyle.Render("  "+option))
+		}
+	}
+
+	selector := lipgloss.JoinHorizontal(lipgloss.Left, options...)
+
+	if m.formModel.focusedField == 7 {
+		selector = selector + " ◄"
+	}
+
+	return lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		labelStyle.Render("Sharing:"),
+		selector,
+	)
+}
+
+// Render person selector
+func (m *TransactionsModel) renderPersonSelector() string {
+	labelStyle := lipgloss.NewStyle().
+		Foreground(style.Text).
+		Bold(true).
+		Width(20)
+
+	if len(m.people) == 0 {
+		return lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			labelStyle.Render("Share with:"),
+			style.ErrorStyle.Render("No people available. Add people first."),
+		)
+	}
+
+	person := m.people[m.formModel.selectedPerson]
+	display := person.Name
+	if person.Email != "" {
+		display += " (" + person.Email + ")"
+	}
+
+	var selector string
+	if m.formModel.focusedField == 8 {
+		selector = style.FocusedInputStyle.Width(30).Render("< " + display + " >")
+		selector = selector + " ◄"
+	} else {
+		selector = style.InputStyle.Width(30).Render(display)
+	}
+
+	return lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		labelStyle.Render("Share with:"),
+		selector,
+	)
+}
+
 func (m *TransactionsModel) renderFormButtons() string {
 	submitText := "Create Transaction"
 	if m.formModel.editing {
@@ -1426,15 +1584,23 @@ func (m *TransactionsModel) renderFormButtons() string {
 
 	var submitStyle, cancelStyle lipgloss.Style
 
+	// Calculate submit/cancel field indices based on whether sharing is enabled
+	submitFieldIndex := 10
+	cancelFieldIndex := 11
+	if !m.formModel.enableSharing || m.formModel.selectedType != 0 {
+		submitFieldIndex = 7
+		cancelFieldIndex = 8
+	}
+
 	// Submit button styling
-	if m.formModel.focusedField == 6 {
+	if m.formModel.focusedField == submitFieldIndex {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 	} else {
 		submitStyle = style.SecondaryButtonStyle
 	}
 
 	// Cancel button styling
-	if m.formModel.focusedField == 7 {
+	if m.formModel.focusedField == cancelFieldIndex {
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	} else {
 		cancelStyle = style.SecondaryButtonStyle
@@ -1444,9 +1610,9 @@ func (m *TransactionsModel) renderFormButtons() string {
 	cancelBtn := cancelStyle.Render("Cancel")
 
 	// Add focus indicators
-	if m.formModel.focusedField == 6 {
+	if m.formModel.focusedField == submitFieldIndex {
 		submitBtn = submitBtn + " ◄"
-	} else if m.formModel.focusedField == 7 {
+	} else if m.formModel.focusedField == cancelFieldIndex {
 		cancelBtn = cancelBtn + " ◄"
 	}
 
