@@ -282,3 +282,80 @@ func (uc *TransactionUseCase) assignToInvoice(ctx context.Context, transaction *
 func (uc *TransactionUseCase) GetTransactionsByCreditCardInvoice(ctx context.Context, invoiceID uuid.UUID) ([]*entity.Transaction, error) {
 	return uc.transactionRepo.FindByCreditCardInvoiceID(ctx, invoiceID)
 }
+
+// DeleteTransaction deletes a transaction and reverses its effects on accounts/credit cards
+func (uc *TransactionUseCase) DeleteTransaction(ctx context.Context, id uuid.UUID) error {
+	// First, get the transaction to understand its effects
+	transaction, err := uc.transactionRepo.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %w", err)
+	}
+
+	// Reverse the effects on account balance
+	if transaction.AccountID != nil {
+		account, err := uc.accountRepo.FindByID(ctx, *transaction.AccountID)
+		if err != nil {
+			return fmt.Errorf("account not found: %w", err)
+		}
+
+		// Reverse the transaction effect
+		if transaction.Type == entity.TransactionTypeDebit {
+			// Original transaction was a withdrawal, so we deposit back
+			if err := account.Deposit(transaction.Amount); err != nil {
+				return fmt.Errorf("failed to reverse withdrawal from account: %w", err)
+			}
+		} else {
+			// Original transaction was a deposit, so we withdraw back
+			if err := account.Withdraw(transaction.Amount); err != nil {
+				return fmt.Errorf("failed to reverse deposit to account: %w", err)
+			}
+		}
+
+		if err := uc.accountRepo.Update(ctx, account); err != nil {
+			return fmt.Errorf("failed to update account: %w", err)
+		}
+	}
+
+	// Reverse the effects on credit card balance
+	if transaction.CreditCardID != nil {
+		card, err := uc.creditCardRepo.FindByID(ctx, *transaction.CreditCardID)
+		if err != nil {
+			return fmt.Errorf("credit card not found: %w", err)
+		}
+
+		// Reverse the transaction effect
+		if transaction.Type == entity.TransactionTypeDebit {
+			// Original transaction was a charge, so we apply a payment back
+			if err := card.Payment(transaction.Amount); err != nil {
+				return fmt.Errorf("failed to reverse charge on credit card: %w", err)
+			}
+		} else {
+			// Original transaction was a payment, so we charge back
+			if err := card.Charge(transaction.Amount); err != nil {
+				return fmt.Errorf("failed to reverse payment on credit card: %w", err)
+			}
+		}
+
+		if err := uc.creditCardRepo.Update(ctx, card); err != nil {
+			return fmt.Errorf("failed to update credit card: %w", err)
+		}
+
+		// Remove from invoice if assigned
+		if transaction.CreditCardInvoiceID != nil && uc.creditCardInvoiceRepo != nil {
+			invoice, err := uc.creditCardInvoiceRepo.FindByID(ctx, *transaction.CreditCardInvoiceID)
+			if err == nil && invoice.IsOpen() {
+				// Remove transaction from invoice
+				if err := invoice.RemoveTransaction(transaction.ID, transaction.Amount, transaction.Type == entity.TransactionTypeCredit); err == nil {
+					uc.creditCardInvoiceRepo.Update(ctx, invoice)
+				}
+			}
+		}
+	}
+
+	// Finally, delete the transaction
+	if err := uc.transactionRepo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete transaction: %w", err)
+	}
+
+	return nil
+}

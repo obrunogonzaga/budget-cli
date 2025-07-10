@@ -1472,11 +1472,14 @@ func (m *TransactionsModel) deleteTransaction() tea.Msg {
 		return errMsg{err: fmt.Errorf("no transaction selected")}
 	}
 
-	_ = m.filteredTransactions[idx]
+	txn := m.filteredTransactions[idx]
 
-	// TODO: Implement delete in use case
-	// For now, we just return an error
-	return errMsg{err: fmt.Errorf("delete transaction not implemented yet")}
+	// Delete the transaction using the use case
+	if err := m.transactionUseCase.DeleteTransaction(m.ctx, txn.ID); err != nil {
+		return errMsg{err: fmt.Errorf("failed to delete transaction: %w", err)}
+	}
+
+	return transactionActionMsg{}
 }
 
 func (m *TransactionsModel) renderTransactionDetails() string {
