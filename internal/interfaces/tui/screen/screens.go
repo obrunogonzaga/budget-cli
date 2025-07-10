@@ -14,9 +14,7 @@ import (
 
 // NewTransactionsModel is now implemented in transactions.go
 
-func NewPeopleModel(ctx context.Context, personUC *usecase.PersonUseCase) tea.Model {
-	return &simpleModel{title: "People", content: "People management screen - Coming soon!"}
-}
+// NewPeopleModel is now implemented in people.go
 
 func NewReportsModel(ctx context.Context, reportUC *usecase.ReportUseCase, personUC *usecase.PersonUseCase, billUC *usecase.BillUseCase) tea.Model {
 	return &simpleModel{title: "Reports", content: "Reports screen - Coming soon!"}
