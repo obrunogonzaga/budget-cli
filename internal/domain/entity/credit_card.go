@@ -9,22 +9,22 @@ import (
 )
 
 type CreditCard struct {
-	ID            uuid.UUID
-	AccountID     uuid.UUID
-	Name          string
+	ID             uuid.UUID
+	AccountID      uuid.UUID
+	Name           string
 	LastFourDigits string
-	CreditLimit   valueobject.Money
+	CreditLimit    valueobject.Money
 	CurrentBalance valueobject.Money
-	DueDay        int
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	DueDay         int
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func NewCreditCard(accountID uuid.UUID, name string, lastFourDigits string, creditLimit valueobject.Money, dueDay int) (*CreditCard, error) {
 	if dueDay < 1 || dueDay > 31 {
 		return nil, fmt.Errorf("due day must be between 1 and 31")
 	}
-	
+
 	if len(lastFourDigits) != 4 {
 		return nil, fmt.Errorf("last four digits must be exactly 4 characters")
 	}
@@ -48,16 +48,16 @@ func (c *CreditCard) Charge(amount valueobject.Money) error {
 	if err != nil {
 		return err
 	}
-	
+
 	availableCredit, err := c.CreditLimit.Subtract(newBalance)
 	if err != nil {
 		return err
 	}
-	
+
 	if availableCredit.IsNegative() {
 		return fmt.Errorf("credit limit exceeded: limit is %s, would be %s", c.CreditLimit.String(), newBalance.String())
 	}
-	
+
 	c.CurrentBalance = newBalance
 	c.UpdatedAt = time.Now()
 	return nil
@@ -68,13 +68,13 @@ func (c *CreditCard) Payment(amount valueobject.Money) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if newBalance.IsNegative() {
 		c.CurrentBalance = valueobject.NewMoney(0, c.CurrentBalance.Currency())
 	} else {
 		c.CurrentBalance = newBalance
 	}
-	
+
 	c.UpdatedAt = time.Now()
 	return nil
 }

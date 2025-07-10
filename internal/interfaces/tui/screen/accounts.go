@@ -9,7 +9,7 @@ import (
 	"financli/internal/application/usecase"
 	"financli/internal/domain/entity"
 	"financli/internal/interfaces/tui/style"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
@@ -18,20 +18,20 @@ import (
 type AccountsModel struct {
 	ctx            context.Context
 	accountUseCase *usecase.AccountUseCase
-	
-	accounts       []*entity.Account
-	selectedIndex  int
-	viewMode       AccountViewMode
-	
-	loading        bool
-	err            error
-	
+
+	accounts      []*entity.Account
+	selectedIndex int
+	viewMode      AccountViewMode
+
+	loading bool
+	err     error
+
 	// Form state
-	formModel      *AccountFormModel
+	formModel         *AccountFormModel
 	showConfirmDelete bool
-	
-	width          int
-	height         int
+
+	width  int
+	height int
 }
 
 type AccountViewMode int
@@ -47,11 +47,11 @@ type AccountFormModel struct {
 	accountType entity.AccountType
 	balance     string
 	description string
-	
+
 	focusedField int
 	editing      bool
 	editingID    *uuid.UUID
-	
+
 	nameInput        string
 	balanceInput     string
 	descriptionInput string
@@ -81,7 +81,7 @@ func (m *AccountsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-		
+
 	case accountsLoadedMsg:
 		m.loading = false
 		m.accounts = msg.accounts
@@ -89,7 +89,7 @@ func (m *AccountsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedIndex = len(m.accounts) - 1
 		}
 		return m, nil
-		
+
 	case accountActionMsg:
 		m.loading = false
 		m.viewMode = AccountViewList
@@ -97,12 +97,12 @@ func (m *AccountsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.formModel.editingID = nil
 		m.resetForm()
 		return m, m.loadAccounts
-		
+
 	case errMsg:
 		m.loading = false
 		m.err = msg.err
 		return m, nil
-		
+
 	case tea.KeyMsg:
 		switch m.viewMode {
 		case AccountViewList:
@@ -113,7 +113,7 @@ func (m *AccountsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleConfirmKeys(msg)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -152,7 +152,7 @@ func (m *AccountsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Go back to dashboard - this will be handled by returning a special message
 		return m, func() tea.Msg { return BackToDashboardMsg{} }
 	}
-	
+
 	return m, nil
 }
 
@@ -176,7 +176,7 @@ func (m *AccountsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		return m.handleFormInput(msg)
 	}
-	
+
 	return m, nil
 }
 
@@ -186,7 +186,7 @@ func (m *AccountsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.formModel.focusedField > 3 {
 		return m, nil
 	}
-	
+
 	switch m.formModel.focusedField {
 	case 0:
 		switch msg.String() {
@@ -233,7 +233,7 @@ func (m *AccountsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -248,7 +248,7 @@ func (m *AccountsModel) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewMode = AccountViewList
 		m.showConfirmDelete = false
 	}
-	
+
 	return m, nil
 }
 
@@ -256,11 +256,11 @@ func (m *AccountsModel) View() string {
 	if m.loading {
 		return style.InfoStyle.Render("Loading accounts...")
 	}
-	
+
 	if m.err != nil {
 		return style.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 	}
-	
+
 	switch m.viewMode {
 	case AccountViewList:
 		return m.renderAccountsList()
@@ -269,30 +269,30 @@ func (m *AccountsModel) View() string {
 	case AccountViewConfirm:
 		return m.renderConfirmDialog()
 	}
-	
+
 	return ""
 }
 
 func (m *AccountsModel) renderAccountsList() string {
 	var sections []string
-	
+
 	title := style.TitleStyle.Render("📊 Accounts Management")
 	sections = append(sections, title)
-	
+
 	if len(m.accounts) == 0 {
 		empty := style.InfoStyle.Render("No accounts found. Press 'n' to create your first account.")
 		sections = append(sections, empty)
 	} else {
 		table := m.renderAccountsTable()
 		sections = append(sections, table)
-		
+
 		details := m.renderAccountDetails()
 		sections = append(sections, details)
 	}
-	
+
 	help := m.renderListHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -302,33 +302,33 @@ func (m *AccountsModel) renderAccountsTable() string {
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	headers := []string{"Type", "Account Name", "Balance", "Description"}
 	headerRow := style.TableHeaderStyle.Render(
 		fmt.Sprintf("%-8s %-20s %-15s %s", headers[0], headers[1], headers[2], headers[3]),
 	)
-	
+
 	var rows []string
 	rows = append(rows, headerRow)
-	
+
 	for i, account := range m.accounts {
 		icon := m.getAccountIcon(account.Type)
 		name := truncateString(account.Name, 20)
 		balance := account.Balance.String()
 		description := truncateString(account.Description, 30)
-		
-		row := fmt.Sprintf("%-8s %-20s %-15s %s", 
+
+		row := fmt.Sprintf("%-8s %-20s %-15s %s",
 			icon, name, balance, description)
-		
+
 		if i == m.selectedIndex {
 			row = style.SelectedMenuItemStyle.Render("► " + row)
 		} else {
 			row = style.MenuItemStyle.Render("  " + row)
 		}
-		
+
 		rows = append(rows, row)
 	}
-	
+
 	table := strings.Join(rows, "\n")
 	return tableStyle.Render(table)
 }
@@ -337,22 +337,22 @@ func (m *AccountsModel) renderAccountDetails() string {
 	if len(m.accounts) == 0 || m.selectedIndex >= len(m.accounts) {
 		return ""
 	}
-	
+
 	account := m.accounts[m.selectedIndex]
-	
+
 	detailsStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	details := []string{
 		fmt.Sprintf("Account ID: %s", account.ID.String()),
 		fmt.Sprintf("Type: %s", m.getAccountTypeName(account.Type)),
 		fmt.Sprintf("Created: %s", account.CreatedAt.Format("2006-01-02 15:04")),
 		fmt.Sprintf("Updated: %s", account.UpdatedAt.Format("2006-01-02 15:04")),
 	}
-	
+
 	content := strings.Join(details, "\n")
 	return detailsStyle.Render(content)
 }
@@ -405,16 +405,16 @@ func (m *AccountsModel) editAccount() (tea.Model, tea.Cmd) {
 	if m.selectedIndex >= len(m.accounts) {
 		return m, nil
 	}
-	
+
 	account := m.accounts[m.selectedIndex]
 	m.viewMode = AccountViewForm
 	m.formModel.editing = true
 	m.formModel.editingID = &account.ID
-	
+
 	m.formModel.nameInput = account.Name
 	m.formModel.balanceInput = fmt.Sprintf("%.2f", account.Balance.Amount())
 	m.formModel.descriptionInput = account.Description
-	
+
 	switch account.Type {
 	case entity.AccountTypeChecking:
 		m.formModel.selectedType = 0
@@ -423,7 +423,7 @@ func (m *AccountsModel) editAccount() (tea.Model, tea.Cmd) {
 	case entity.AccountTypeInvestment:
 		m.formModel.selectedType = 2
 	}
-	
+
 	return m, nil
 }
 
@@ -440,7 +440,7 @@ func (m *AccountsModel) loadAccounts() tea.Msg {
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return accountsLoadedMsg{accounts: accounts}
 }
 
@@ -449,21 +449,21 @@ func (m *AccountsModel) submitForm() (tea.Model, tea.Cmd) {
 		m.err = fmt.Errorf("account name is required")
 		return m, nil
 	}
-	
+
 	balance, err := strconv.ParseFloat(m.formModel.balanceInput, 64)
 	if err != nil {
 		m.err = fmt.Errorf("invalid balance amount")
 		return m, nil
 	}
-	
+
 	accountType := m.getAccountTypeFromSelection()
-	
+
 	m.loading = true
-	
+
 	if m.formModel.editing && m.formModel.editingID != nil {
 		return m, func() tea.Msg { return m.updateAccount(accountType, balance) }
 	}
-	
+
 	return m, func() tea.Msg { return m.createAccount(accountType, balance) }
 }
 
@@ -492,7 +492,7 @@ func (m *AccountsModel) createAccount(accountType entity.AccountType, balance fl
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return accountActionMsg{}
 }
 
@@ -500,7 +500,7 @@ func (m *AccountsModel) updateAccount(accountType entity.AccountType, balance fl
 	if m.formModel.editingID == nil {
 		return errMsg{err: fmt.Errorf("no account ID for editing")}
 	}
-	
+
 	_, err := m.accountUseCase.UpdateAccount(
 		m.ctx,
 		*m.formModel.editingID,
@@ -513,7 +513,7 @@ func (m *AccountsModel) updateAccount(accountType entity.AccountType, balance fl
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return accountActionMsg{}
 }
 
@@ -521,31 +521,31 @@ func (m *AccountsModel) deleteAccount() tea.Msg {
 	if m.selectedIndex >= len(m.accounts) {
 		return errMsg{err: fmt.Errorf("no account selected")}
 	}
-	
+
 	account := m.accounts[m.selectedIndex]
 	err := m.accountUseCase.DeleteAccount(m.ctx, account.ID)
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return accountActionMsg{}
 }
 
 func (m *AccountsModel) renderAccountForm() string {
 	var sections []string
-	
+
 	title := "📝 New Account"
 	if m.formModel.editing {
 		title = "✏️ Edit Account"
 	}
 	sections = append(sections, style.TitleStyle.Render(title))
-	
+
 	form := m.renderForm()
 	sections = append(sections, form)
-	
+
 	help := m.renderFormHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -555,17 +555,17 @@ func (m *AccountsModel) renderForm() string {
 		BorderForeground(style.Border).
 		Padding(2, 4).
 		MarginTop(1)
-	
+
 	var fields []string
-	
+
 	fields = append(fields, m.renderFormField("Name:", m.formModel.nameInput, 0))
 	fields = append(fields, m.renderTypeSelector())
 	fields = append(fields, m.renderFormField("Initial Balance:", m.formModel.balanceInput, 2))
 	fields = append(fields, m.renderFormField("Description:", m.formModel.descriptionInput, 3))
-	
+
 	buttons := m.renderFormButtons()
 	fields = append(fields, buttons)
-	
+
 	content := strings.Join(fields, "\n\n")
 	return formStyle.Render(content)
 }
@@ -575,20 +575,20 @@ func (m *AccountsModel) renderFormField(label, value string, fieldIndex int) str
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	var inputStyle lipgloss.Style
 	if m.formModel.focusedField == fieldIndex {
 		inputStyle = style.FocusedInputStyle.Width(30)
 	} else {
 		inputStyle = style.InputStyle.Width(30)
 	}
-	
+
 	input := inputStyle.Render(value)
-	
+
 	if m.formModel.focusedField == fieldIndex {
 		input = input + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render(label),
@@ -601,7 +601,7 @@ func (m *AccountsModel) renderTypeSelector() string {
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	var options []string
 	for i, option := range m.formModel.typeOptions {
 		if i == m.formModel.selectedType {
@@ -614,13 +614,13 @@ func (m *AccountsModel) renderTypeSelector() string {
 			options = append(options, style.MenuItemStyle.Render("  "+option))
 		}
 	}
-	
+
 	selector := lipgloss.JoinHorizontal(lipgloss.Left, options...)
-	
+
 	if m.formModel.focusedField == 1 {
 		selector = selector + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render("Type:"),
@@ -633,33 +633,33 @@ func (m *AccountsModel) renderFormButtons() string {
 	if m.formModel.editing {
 		submitText = "Update Account"
 	}
-	
+
 	var submitStyle, cancelStyle lipgloss.Style
-	
+
 	// Submit button styling
 	if m.formModel.focusedField == 4 {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 	} else {
 		submitStyle = style.SecondaryButtonStyle
 	}
-	
+
 	// Cancel button styling
 	if m.formModel.focusedField == 5 {
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	} else {
 		cancelStyle = style.SecondaryButtonStyle
 	}
-	
+
 	submitBtn := submitStyle.Render(submitText)
 	cancelBtn := cancelStyle.Render("Cancel")
-	
+
 	// Add focus indicators
 	if m.formModel.focusedField == 4 {
 		submitBtn = submitBtn + " ◄"
 	} else if m.formModel.focusedField == 5 {
 		cancelBtn = cancelBtn + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		submitBtn,
@@ -678,20 +678,20 @@ func (m *AccountsModel) renderConfirmDialog() string {
 	if m.selectedIndex >= len(m.accounts) {
 		return ""
 	}
-	
+
 	account := m.accounts[m.selectedIndex]
-	
+
 	dialogStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Danger).
 		Padding(2, 4).
 		MarginTop(5)
-	
+
 	title := style.ErrorStyle.Render("⚠️  Confirm Delete")
 	message := fmt.Sprintf("Are you sure you want to delete account '%s'?", account.Name)
 	warning := style.WarningStyle.Render("This action cannot be undone!")
 	help := "[y] Yes, Delete • [n] Cancel"
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
@@ -701,7 +701,7 @@ func (m *AccountsModel) renderConfirmDialog() string {
 		"",
 		help,
 	)
-	
+
 	return dialogStyle.Render(content)
 }
 
@@ -716,4 +716,3 @@ type accountsLoadedMsg struct {
 type accountActionMsg struct{}
 
 type BackToDashboardMsg struct{}
-

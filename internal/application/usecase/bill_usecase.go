@@ -27,11 +27,11 @@ func (uc *BillUseCase) CreateBill(ctx context.Context, name, description string,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := uc.billRepo.Create(ctx, bill); err != nil {
 		return nil, fmt.Errorf("failed to create bill: %w", err)
 	}
-	
+
 	return bill, nil
 }
 
@@ -60,12 +60,12 @@ func (uc *BillUseCase) AddPayment(ctx context.Context, billID uuid.UUID, amount 
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := bill.AddPayment(money); err != nil {
 		return err
 	}
-	
+
 	return uc.billRepo.Update(ctx, bill)
 }
 
@@ -74,11 +74,11 @@ func (uc *BillUseCase) CloseBill(ctx context.Context, billID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if err := bill.Close(); err != nil {
 		return err
 	}
-	
+
 	return uc.billRepo.Update(ctx, bill)
 }
 

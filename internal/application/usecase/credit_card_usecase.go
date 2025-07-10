@@ -28,17 +28,17 @@ func (uc *CreditCardUseCase) CreateCreditCard(ctx context.Context, accountID uui
 	if err != nil {
 		return nil, fmt.Errorf("account not found: %w", err)
 	}
-	
+
 	limit := valueobject.NewMoney(creditLimit, currency)
 	card, err := entity.NewCreditCard(accountID, name, lastFourDigits, limit, dueDay)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := uc.creditCardRepo.Create(ctx, card); err != nil {
 		return nil, fmt.Errorf("failed to create credit card: %w", err)
 	}
-	
+
 	return card, nil
 }
 
@@ -59,12 +59,12 @@ func (uc *CreditCardUseCase) ChargeCard(ctx context.Context, cardID uuid.UUID, a
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := card.Charge(money); err != nil {
 		return err
 	}
-	
+
 	return uc.creditCardRepo.Update(ctx, card)
 }
 
@@ -73,32 +73,32 @@ func (uc *CreditCardUseCase) MakePayment(ctx context.Context, cardID uuid.UUID, 
 	if err != nil {
 		return err
 	}
-	
+
 	account, err := uc.accountRepo.FindByID(ctx, card.AccountID)
 	if err != nil {
 		return fmt.Errorf("linked account not found: %w", err)
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
-	
+
 	// Withdraw from account
 	if err := account.Withdraw(money); err != nil {
 		return fmt.Errorf("failed to withdraw from account: %w", err)
 	}
-	
+
 	// Apply payment to card
 	if err := card.Payment(money); err != nil {
 		return fmt.Errorf("failed to apply payment to card: %w", err)
 	}
-	
+
 	// Update both
 	if err := uc.accountRepo.Update(ctx, account); err != nil {
 		return fmt.Errorf("failed to update account: %w", err)
 	}
-	
+
 	if err := uc.creditCardRepo.Update(ctx, card); err != nil {
 		return fmt.Errorf("failed to update credit card: %w", err)
 	}
-	
+
 	return nil
 }

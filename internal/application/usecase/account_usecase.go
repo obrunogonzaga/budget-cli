@@ -23,11 +23,11 @@ func NewAccountUseCase(accountRepo repository.AccountRepository) *AccountUseCase
 func (uc *AccountUseCase) CreateAccount(ctx context.Context, name string, accountType entity.AccountType, initialBalance float64, currency, description string) (*entity.Account, error) {
 	money := valueobject.NewMoney(initialBalance, currency)
 	account := entity.NewAccount(name, accountType, money, description)
-	
+
 	if err := uc.accountRepo.Create(ctx, account); err != nil {
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
-	
+
 	return account, nil
 }
 
@@ -44,12 +44,12 @@ func (uc *AccountUseCase) Deposit(ctx context.Context, accountID uuid.UUID, amou
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := account.Deposit(money); err != nil {
 		return err
 	}
-	
+
 	return uc.accountRepo.Update(ctx, account)
 }
 
@@ -58,12 +58,12 @@ func (uc *AccountUseCase) Withdraw(ctx context.Context, accountID uuid.UUID, amo
 	if err != nil {
 		return err
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
 	if err := account.Withdraw(money); err != nil {
 		return err
 	}
-	
+
 	return uc.accountRepo.Update(ctx, account)
 }
 
@@ -72,16 +72,16 @@ func (uc *AccountUseCase) UpdateAccount(ctx context.Context, id uuid.UUID, name 
 	if err != nil {
 		return nil, fmt.Errorf("account not found: %w", err)
 	}
-	
+
 	account.Name = name
 	account.Type = accountType
 	account.Description = description
 	account.Balance = valueobject.NewMoney(balance, currency)
-	
+
 	if err := uc.accountRepo.Update(ctx, account); err != nil {
 		return nil, fmt.Errorf("failed to update account: %w", err)
 	}
-	
+
 	return account, nil
 }
 
@@ -94,29 +94,29 @@ func (uc *AccountUseCase) Transfer(ctx context.Context, fromAccountID, toAccount
 	if err != nil {
 		return fmt.Errorf("source account not found: %w", err)
 	}
-	
+
 	toAccount, err := uc.accountRepo.FindByID(ctx, toAccountID)
 	if err != nil {
 		return fmt.Errorf("destination account not found: %w", err)
 	}
-	
+
 	money := valueobject.NewMoney(amount, currency)
-	
+
 	if err := fromAccount.Withdraw(money); err != nil {
 		return fmt.Errorf("failed to withdraw from source account: %w", err)
 	}
-	
+
 	if err := toAccount.Deposit(money); err != nil {
 		return fmt.Errorf("failed to deposit to destination account: %w", err)
 	}
-	
+
 	if err := uc.accountRepo.Update(ctx, fromAccount); err != nil {
 		return fmt.Errorf("failed to update source account: %w", err)
 	}
-	
+
 	if err := uc.accountRepo.Update(ctx, toAccount); err != nil {
 		return fmt.Errorf("failed to update destination account: %w", err)
 	}
-	
+
 	return nil
 }

@@ -10,40 +10,40 @@ import (
 	"financli/internal/application/usecase"
 	"financli/internal/domain/entity"
 	"financli/internal/interfaces/tui/style"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 )
 
 type BillsModel struct {
-	ctx            context.Context
-	billUseCase    *usecase.BillUseCase
-	
+	ctx         context.Context
+	billUseCase *usecase.BillUseCase
+
 	// Data
-	bills          []*entity.Bill
-	
+	bills []*entity.Bill
+
 	// View state
-	selectedIndex  int
-	viewMode       BillViewMode
-	
+	selectedIndex int
+	viewMode      BillViewMode
+
 	// Loading and errors
-	loading        bool
-	err            error
-	
+	loading bool
+	err     error
+
 	// Form state
-	formModel      *BillFormModel
-	
+	formModel *BillFormModel
+
 	// Payment state
-	paymentModel   *BillPaymentFormModel
-	
+	paymentModel *BillPaymentFormModel
+
 	// Confirmation state
 	showConfirmDelete bool
 	confirmMessage    string
-	
+
 	// Window dimensions
-	width          int
-	height         int
+	width  int
+	height int
 }
 
 type BillViewMode int
@@ -58,38 +58,38 @@ const (
 
 type BillFormModel struct {
 	// Form fields
-	name           string
-	description    string
-	totalAmount    string
-	startDate      string
-	endDate        string
-	dueDate        string
-	
+	name        string
+	description string
+	totalAmount string
+	startDate   string
+	endDate     string
+	dueDate     string
+
 	// Input fields
-	nameInput         string
-	descriptionInput  string
-	amountInput       string
-	startDateInput    string
-	endDateInput      string
-	dueDateInput      string
-	
+	nameInput        string
+	descriptionInput string
+	amountInput      string
+	startDateInput   string
+	endDateInput     string
+	dueDateInput     string
+
 	// Navigation
-	focusedField   int
-	
+	focusedField int
+
 	// Edit state
-	editing        bool
-	editingID      *uuid.UUID
+	editing   bool
+	editingID *uuid.UUID
 }
 
 type BillPaymentFormModel struct {
-	billID         uuid.UUID
-	bill           *entity.Bill
-	
+	billID uuid.UUID
+	bill   *entity.Bill
+
 	// Payment amount
-	amountInput    string
-	
+	amountInput string
+
 	// Navigation
-	focusedField   int
+	focusedField int
 }
 
 // Message types
@@ -119,7 +119,7 @@ func (m *BillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-		
+
 	case billsLoadedMsg:
 		m.loading = false
 		m.bills = msg.bills
@@ -127,7 +127,7 @@ func (m *BillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedIndex = len(m.bills) - 1
 		}
 		return m, nil
-		
+
 	case billActionMsg:
 		m.loading = false
 		m.viewMode = BillViewList
@@ -135,12 +135,12 @@ func (m *BillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.formModel.editingID = nil
 		m.resetForm()
 		return m, m.loadBills
-		
+
 	case errMsg:
 		m.loading = false
 		m.err = msg.err
 		return m, nil
-		
+
 	case tea.KeyMsg:
 		switch m.viewMode {
 		case BillViewList:
@@ -155,7 +155,7 @@ func (m *BillsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleConfirmKeys(msg)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -201,7 +201,7 @@ func (m *BillsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "b":
 		return m, func() tea.Msg { return BackToDashboardMsg{} }
 	}
-	
+
 	return m, nil
 }
 
@@ -225,7 +225,7 @@ func (m *BillsModel) handleFormKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		return m.handleFormInput(msg)
 	}
-	
+
 	return m, nil
 }
 
@@ -235,7 +235,7 @@ func (m *BillsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.formModel.focusedField > 5 {
 		return m, nil
 	}
-	
+
 	switch m.formModel.focusedField {
 	case 0: // Name
 		switch msg.String() {
@@ -304,7 +304,7 @@ func (m *BillsModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -322,7 +322,7 @@ func (m *BillsModel) handleDetailsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewMode = BillViewConfirm
 		m.showConfirmDelete = true
 	}
-	
+
 	return m, nil
 }
 
@@ -357,7 +357,7 @@ func (m *BillsModel) handlePaymentKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -372,7 +372,7 @@ func (m *BillsModel) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewMode = BillViewList
 		m.showConfirmDelete = false
 	}
-	
+
 	return m, nil
 }
 
@@ -380,11 +380,11 @@ func (m *BillsModel) View() string {
 	if m.loading {
 		return style.InfoStyle.Render("Loading bills...")
 	}
-	
+
 	if m.err != nil {
 		return style.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 	}
-	
+
 	switch m.viewMode {
 	case BillViewList:
 		return m.renderBillsList()
@@ -397,30 +397,30 @@ func (m *BillsModel) View() string {
 	case BillViewConfirm:
 		return m.renderConfirmDialog()
 	}
-	
+
 	return ""
 }
 
 func (m *BillsModel) renderBillsList() string {
 	var sections []string
-	
+
 	title := style.TitleStyle.Render("📋 Bills Management")
 	sections = append(sections, title)
-	
+
 	if len(m.bills) == 0 {
 		empty := style.InfoStyle.Render("No bills found. Press 'n' to create your first bill.")
 		sections = append(sections, empty)
 	} else {
 		table := m.renderBillsTable()
 		sections = append(sections, table)
-		
+
 		summary := m.renderBillsSummary()
 		sections = append(sections, summary)
 	}
-	
+
 	help := m.renderListHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -430,16 +430,16 @@ func (m *BillsModel) renderBillsTable() string {
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	headers := []string{"Status", "Bill Name", "Total", "Paid", "Progress", "Due Date"}
 	headerRow := style.TableHeaderStyle.Render(
-		fmt.Sprintf("%-8s %-20s %-12s %-12s %-20s %s", 
+		fmt.Sprintf("%-8s %-20s %-12s %-12s %-20s %s",
 			headers[0], headers[1], headers[2], headers[3], headers[4], headers[5]),
 	)
-	
+
 	var rows []string
 	rows = append(rows, headerRow)
-	
+
 	for i, bill := range m.bills {
 		status := m.getBillStatusIcon(bill.Status)
 		name := truncateString(bill.Name, 20)
@@ -447,24 +447,24 @@ func (m *BillsModel) renderBillsTable() string {
 		paid := bill.PaidAmount.String()
 		progress := m.renderProgressBar(bill.GetPaymentPercentage(), 20)
 		dueDate := bill.DueDate.Format("2006-01-02")
-		
+
 		// Color code due date if overdue
 		if bill.Status == entity.BillStatusOverdue {
 			dueDate = style.ErrorStyle.Render(dueDate)
 		}
-		
-		row := fmt.Sprintf("%-8s %-20s %-12s %-12s %s %s", 
+
+		row := fmt.Sprintf("%-8s %-20s %-12s %-12s %s %s",
 			status, name, total, paid, progress, dueDate)
-		
+
 		if i == m.selectedIndex {
 			row = style.SelectedMenuItemStyle.Render("► " + row)
 		} else {
 			row = style.MenuItemStyle.Render("  " + row)
 		}
-		
+
 		rows = append(rows, row)
 	}
-	
+
 	table := strings.Join(rows, "\n")
 	return tableStyle.Render(table)
 }
@@ -475,13 +475,13 @@ func (m *BillsModel) renderBillsSummary() string {
 		BorderForeground(style.Info).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	totalBills := len(m.bills)
 	openBills := 0
 	overdueBills := 0
 	totalAmount := 0.0
 	totalPaid := 0.0
-	
+
 	for _, bill := range m.bills {
 		if bill.Status == entity.BillStatusOpen {
 			openBills++
@@ -491,7 +491,7 @@ func (m *BillsModel) renderBillsSummary() string {
 		totalAmount += bill.TotalAmount.Amount()
 		totalPaid += bill.PaidAmount.Amount()
 	}
-	
+
 	summary := []string{
 		fmt.Sprintf("Total Bills: %d", totalBills),
 		fmt.Sprintf("Open Bills: %d", openBills),
@@ -500,7 +500,7 @@ func (m *BillsModel) renderBillsSummary() string {
 		fmt.Sprintf("Total Paid: R$ %.2f", totalPaid),
 		fmt.Sprintf("Remaining: R$ %.2f", totalAmount-totalPaid),
 	}
-	
+
 	content := strings.Join(summary, " • ")
 	return summaryStyle.Render(content)
 }
@@ -509,21 +509,21 @@ func (m *BillsModel) renderBillDetails() string {
 	if m.selectedIndex >= len(m.bills) {
 		return ""
 	}
-	
+
 	bill := m.bills[m.selectedIndex]
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render(fmt.Sprintf("📋 Bill Details: %s", bill.Name))
 	sections = append(sections, title)
-	
+
 	// Main details
 	detailsStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Border).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	details := []string{
 		fmt.Sprintf("Status: %s %s", m.getBillStatusIcon(bill.Status), m.getBillStatusName(bill.Status)),
 		fmt.Sprintf("Description: %s", bill.Description),
@@ -534,48 +534,48 @@ func (m *BillsModel) renderBillDetails() string {
 		fmt.Sprintf("Total Amount: %s", bill.TotalAmount.String()),
 		fmt.Sprintf("Paid Amount: %s", bill.PaidAmount.String()),
 	}
-	
+
 	remaining, _ := bill.GetRemainingAmount()
 	details = append(details, fmt.Sprintf("Remaining: %s", remaining.String()))
-	
+
 	content := strings.Join(details, "\n")
 	sections = append(sections, detailsStyle.Render(content))
-	
+
 	// Payment progress visualization
 	progressStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Success).
 		Padding(1, 2).
 		MarginTop(1)
-	
+
 	percentage := bill.GetPaymentPercentage()
 	progressBar := m.renderProgressBar(percentage, 50)
 	progressInfo := fmt.Sprintf("Payment Progress: %.1f%%\n\n%s", percentage, progressBar)
-	
+
 	sections = append(sections, progressStyle.Render(progressInfo))
-	
+
 	// Actions help
 	help := "[e] Edit • [p] Add Payment • [c] Close Bill • [d] Delete • [b] Back"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
 func (m *BillsModel) renderBillForm() string {
 	var sections []string
-	
+
 	title := "📝 New Bill"
 	if m.formModel.editing {
 		title = "✏️ Edit Bill"
 	}
 	sections = append(sections, style.TitleStyle.Render(title))
-	
+
 	form := m.renderForm()
 	sections = append(sections, form)
-	
+
 	help := m.renderFormHelp()
 	sections = append(sections, help)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -585,19 +585,19 @@ func (m *BillsModel) renderForm() string {
 		BorderForeground(style.Border).
 		Padding(2, 4).
 		MarginTop(1)
-	
+
 	var fields []string
-	
+
 	fields = append(fields, m.renderFormField("Name:", m.formModel.nameInput, 0))
 	fields = append(fields, m.renderFormField("Description:", m.formModel.descriptionInput, 1))
 	fields = append(fields, m.renderFormField("Total Amount:", m.formModel.amountInput, 2))
 	fields = append(fields, m.renderFormField("Start Date (YYYY-MM-DD):", m.formModel.startDateInput, 3))
 	fields = append(fields, m.renderFormField("End Date (YYYY-MM-DD):", m.formModel.endDateInput, 4))
 	fields = append(fields, m.renderFormField("Due Date (YYYY-MM-DD):", m.formModel.dueDateInput, 5))
-	
+
 	buttons := m.renderFormButtons()
 	fields = append(fields, buttons)
-	
+
 	content := strings.Join(fields, "\n\n")
 	return formStyle.Render(content)
 }
@@ -607,20 +607,20 @@ func (m *BillsModel) renderFormField(label, value string, fieldIndex int) string
 		Foreground(style.Text).
 		Bold(true).
 		Width(25)
-	
+
 	var inputStyle lipgloss.Style
 	if m.formModel.focusedField == fieldIndex {
 		inputStyle = style.FocusedInputStyle.Width(30)
 	} else {
 		inputStyle = style.InputStyle.Width(30)
 	}
-	
+
 	input := inputStyle.Render(value)
-	
+
 	if m.formModel.focusedField == fieldIndex {
 		input = input + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render(label),
@@ -633,33 +633,33 @@ func (m *BillsModel) renderFormButtons() string {
 	if m.formModel.editing {
 		submitText = "Update Bill"
 	}
-	
+
 	var submitStyle, cancelStyle lipgloss.Style
-	
+
 	// Submit button styling
 	if m.formModel.focusedField == 6 {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 	} else {
 		submitStyle = style.SecondaryButtonStyle
 	}
-	
+
 	// Cancel button styling
 	if m.formModel.focusedField == 7 {
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	} else {
 		cancelStyle = style.SecondaryButtonStyle
 	}
-	
+
 	submitBtn := submitStyle.Render(submitText)
 	cancelBtn := cancelStyle.Render("Cancel")
-	
+
 	// Add focus indicators
 	if m.formModel.focusedField == 6 {
 		submitBtn = submitBtn + " ◄"
 	} else if m.formModel.focusedField == 7 {
 		cancelBtn = cancelBtn + " ◄"
 	}
-	
+
 	return lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		submitBtn,
@@ -678,91 +678,91 @@ func (m *BillsModel) renderPaymentForm() string {
 	if m.paymentModel == nil || m.paymentModel.bill == nil {
 		return ""
 	}
-	
+
 	var sections []string
-	
+
 	title := style.TitleStyle.Render(fmt.Sprintf("💰 Add Payment to: %s", m.paymentModel.bill.Name))
 	sections = append(sections, title)
-	
+
 	formStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Success).
 		Padding(2, 4).
 		MarginTop(1)
-	
+
 	var fields []string
-	
+
 	// Bill info
 	fields = append(fields, style.InfoStyle.Render(fmt.Sprintf("Total Amount: %s", m.paymentModel.bill.TotalAmount.String())))
 	fields = append(fields, style.InfoStyle.Render(fmt.Sprintf("Already Paid: %s", m.paymentModel.bill.PaidAmount.String())))
-	
+
 	remaining, _ := m.paymentModel.bill.GetRemainingAmount()
 	fields = append(fields, style.WarningStyle.Render(fmt.Sprintf("Remaining: %s", remaining.String())))
-	
+
 	fields = append(fields, "") // Empty line
-	
+
 	// Payment amount input
 	labelStyle := lipgloss.NewStyle().
 		Foreground(style.Text).
 		Bold(true).
 		Width(20)
-	
+
 	var inputStyle lipgloss.Style
 	if m.paymentModel.focusedField == 0 {
 		inputStyle = style.FocusedInputStyle.Width(30)
 	} else {
 		inputStyle = style.InputStyle.Width(30)
 	}
-	
+
 	input := inputStyle.Render(m.paymentModel.amountInput)
 	if m.paymentModel.focusedField == 0 {
 		input = input + " ◄"
 	}
-	
+
 	paymentField := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		labelStyle.Render("Payment Amount:"),
 		input,
 	)
 	fields = append(fields, paymentField)
-	
+
 	// Buttons
 	var submitStyle, cancelStyle lipgloss.Style
-	
+
 	if m.paymentModel.focusedField == 1 {
 		submitStyle = style.ButtonStyle.Background(style.Success)
 	} else {
 		submitStyle = style.SecondaryButtonStyle
 	}
-	
+
 	if m.paymentModel.focusedField == 2 {
 		cancelStyle = style.ButtonStyle.Background(style.Danger)
 	} else {
 		cancelStyle = style.SecondaryButtonStyle
 	}
-	
+
 	submitBtn := submitStyle.Render("Process Payment")
 	cancelBtn := cancelStyle.Render("Cancel")
-	
+
 	if m.paymentModel.focusedField == 1 {
 		submitBtn = submitBtn + " ◄"
 	} else if m.paymentModel.focusedField == 2 {
 		cancelBtn = cancelBtn + " ◄"
 	}
-	
+
 	buttons := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		submitBtn,
 		lipgloss.NewStyle().MarginLeft(2).Render(cancelBtn),
 	)
 	fields = append(fields, buttons)
-	
+
 	content := strings.Join(fields, "\n\n")
 	sections = append(sections, formStyle.Render(content))
-	
+
 	help := "[Tab] Next Field • [Shift+Tab] Previous • [Enter] Confirm • [Esc] Cancel"
 	sections = append(sections, style.HelpStyle.MarginTop(1).Render(help))
-	
+
 	return lipgloss.JoinVertical(lipgloss.Top, sections...)
 }
 
@@ -770,20 +770,20 @@ func (m *BillsModel) renderConfirmDialog() string {
 	if m.selectedIndex >= len(m.bills) {
 		return ""
 	}
-	
+
 	bill := m.bills[m.selectedIndex]
-	
+
 	dialogStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(style.Danger).
 		Padding(2, 4).
 		MarginTop(5)
-	
+
 	title := style.ErrorStyle.Render("⚠️  Confirm Delete")
 	message := fmt.Sprintf("Are you sure you want to delete bill '%s'?", bill.Name)
 	warning := style.WarningStyle.Render("This action cannot be undone!")
 	help := "[y] Yes, Delete • [n] Cancel"
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
@@ -793,7 +793,7 @@ func (m *BillsModel) renderConfirmDialog() string {
 		"",
 		help,
 	)
-	
+
 	return dialogStyle.Render(content)
 }
 
@@ -814,7 +814,7 @@ func (m *BillsModel) renderProgressBar(percentage float64, width int) string {
 			bar += "░"
 		}
 	}
-	
+
 	color := m.getPaymentColor(percentage)
 	return lipgloss.NewStyle().Foreground(color).Render(bar)
 }
@@ -864,7 +864,7 @@ func (m *BillsModel) loadBills() tea.Msg {
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return billsLoadedMsg{bills: bills}
 }
 
@@ -872,19 +872,19 @@ func (m *BillsModel) editBill() (tea.Model, tea.Cmd) {
 	if m.selectedIndex >= len(m.bills) {
 		return m, nil
 	}
-	
+
 	bill := m.bills[m.selectedIndex]
 	m.viewMode = BillViewForm
 	m.formModel.editing = true
 	m.formModel.editingID = &bill.ID
-	
+
 	m.formModel.nameInput = bill.Name
 	m.formModel.descriptionInput = bill.Description
 	m.formModel.amountInput = fmt.Sprintf("%.2f", bill.TotalAmount.Amount())
 	m.formModel.startDateInput = bill.StartDate.Format("2006-01-02")
 	m.formModel.endDateInput = bill.EndDate.Format("2006-01-02")
 	m.formModel.dueDateInput = bill.DueDate.Format("2006-01-02")
-	
+
 	return m, nil
 }
 
@@ -892,21 +892,21 @@ func (m *BillsModel) startPayment() (tea.Model, tea.Cmd) {
 	if m.selectedIndex >= len(m.bills) {
 		return m, nil
 	}
-	
+
 	bill := m.bills[m.selectedIndex]
-	
+
 	// Check if bill can receive payments
 	if bill.Status == entity.BillStatusClosed || bill.Status == entity.BillStatusPaid {
 		m.err = fmt.Errorf("cannot add payment to %s bill", bill.Status)
 		return m, nil
 	}
-	
+
 	m.viewMode = BillViewPayment
 	m.paymentModel = &BillPaymentFormModel{
 		billID: bill.ID,
 		bill:   bill,
 	}
-	
+
 	return m, nil
 }
 
@@ -914,9 +914,9 @@ func (m *BillsModel) closeBill() (tea.Model, tea.Cmd) {
 	if m.selectedIndex >= len(m.bills) {
 		return m, nil
 	}
-	
+
 	bill := m.bills[m.selectedIndex]
-	
+
 	m.loading = true
 	return m, func() tea.Msg {
 		err := m.billUseCase.CloseBill(m.ctx, bill.ID)
@@ -931,7 +931,7 @@ func (m *BillsModel) deleteBill() tea.Msg {
 	if m.selectedIndex >= len(m.bills) {
 		return errMsg{err: fmt.Errorf("no bill selected")}
 	}
-	
+
 	// TODO: Implement DeleteBill in use case
 	// For now, return an error
 	return errMsg{err: fmt.Errorf("bill deletion not implemented in backend")}
@@ -943,38 +943,38 @@ func (m *BillsModel) submitForm() (tea.Model, tea.Cmd) {
 		m.err = fmt.Errorf("bill name is required")
 		return m, nil
 	}
-	
+
 	amount, err := strconv.ParseFloat(m.formModel.amountInput, 64)
 	if err != nil {
 		m.err = fmt.Errorf("invalid amount")
 		return m, nil
 	}
-	
+
 	// Parse dates
 	startDate, err := time.Parse("2006-01-02", m.formModel.startDateInput)
 	if err != nil {
 		m.err = fmt.Errorf("invalid start date format (use YYYY-MM-DD)")
 		return m, nil
 	}
-	
+
 	endDate, err := time.Parse("2006-01-02", m.formModel.endDateInput)
 	if err != nil {
 		m.err = fmt.Errorf("invalid end date format (use YYYY-MM-DD)")
 		return m, nil
 	}
-	
+
 	dueDate, err := time.Parse("2006-01-02", m.formModel.dueDateInput)
 	if err != nil {
 		m.err = fmt.Errorf("invalid due date format (use YYYY-MM-DD)")
 		return m, nil
 	}
-	
+
 	m.loading = true
-	
+
 	if m.formModel.editing && m.formModel.editingID != nil {
 		return m, func() tea.Msg { return m.updateBill(*m.formModel.editingID, amount, startDate, endDate, dueDate) }
 	}
-	
+
 	return m, func() tea.Msg { return m.createBill(amount, startDate, endDate, dueDate) }
 }
 
@@ -992,7 +992,7 @@ func (m *BillsModel) createBill(amount float64, startDate, endDate, dueDate time
 	if err != nil {
 		return errMsg{err: err}
 	}
-	
+
 	return billActionMsg{}
 }
 
@@ -1006,13 +1006,13 @@ func (m *BillsModel) submitPayment() (tea.Model, tea.Cmd) {
 	if m.paymentModel == nil {
 		return m, nil
 	}
-	
+
 	amount, err := strconv.ParseFloat(m.paymentModel.amountInput, 64)
 	if err != nil || amount <= 0 {
 		m.err = fmt.Errorf("invalid payment amount")
 		return m, nil
 	}
-	
+
 	m.loading = true
 	return m, func() tea.Msg {
 		err := m.billUseCase.AddPayment(m.ctx, m.paymentModel.billID, amount, "BRL")

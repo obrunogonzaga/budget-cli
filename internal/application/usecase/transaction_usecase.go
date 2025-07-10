@@ -12,10 +12,11 @@ import (
 )
 
 type TransactionUseCase struct {
-	transactionRepo repository.TransactionRepository
-	accountRepo     repository.AccountRepository
-	creditCardRepo  repository.CreditCardRepository
-	billRepo        repository.BillRepository
+	transactionRepo       repository.TransactionRepository
+	accountRepo           repository.AccountRepository
+	creditCardRepo        repository.CreditCardRepository
+	creditCardInvoiceRepo repository.CreditCardInvoiceRepository
+	billRepo              repository.BillRepository
 }
 
 func NewTransactionUseCase(
@@ -32,6 +33,23 @@ func NewTransactionUseCase(
 	}
 }
 
+// NewTransactionUseCaseWithInvoice creates a new transaction use case with invoice support
+func NewTransactionUseCaseWithInvoice(
+	transactionRepo repository.TransactionRepository,
+	accountRepo repository.AccountRepository,
+	creditCardRepo repository.CreditCardRepository,
+	creditCardInvoiceRepo repository.CreditCardInvoiceRepository,
+	billRepo repository.BillRepository,
+) *TransactionUseCase {
+	return &TransactionUseCase{
+		transactionRepo:       transactionRepo,
+		accountRepo:           accountRepo,
+		creditCardRepo:        creditCardRepo,
+		creditCardInvoiceRepo: creditCardInvoiceRepo,
+		billRepo:              billRepo,
+	}
+}
+
 func (uc *TransactionUseCase) CreateTransaction(
 	ctx context.Context,
 	accountID *uuid.UUID,
@@ -45,14 +63,14 @@ func (uc *TransactionUseCase) CreateTransaction(
 ) (*entity.Transaction, error) {
 	money := valueobject.NewMoney(amount, currency)
 	transaction := entity.NewTransaction(accountID, creditCardID, transactionType, category, money, description, date)
-	
+
 	// Update account or credit card balance
 	if accountID != nil {
 		account, err := uc.accountRepo.FindByID(ctx, *accountID)
 		if err != nil {
 			return nil, fmt.Errorf("account not found: %w", err)
 		}
-		
+
 		if transactionType == entity.TransactionTypeDebit {
 			if err := account.Withdraw(money); err != nil {
 				return nil, fmt.Errorf("failed to withdraw from account: %w", err)
@@ -62,18 +80,18 @@ func (uc *TransactionUseCase) CreateTransaction(
 				return nil, fmt.Errorf("failed to deposit to account: %w", err)
 			}
 		}
-		
+
 		if err := uc.accountRepo.Update(ctx, account); err != nil {
 			return nil, fmt.Errorf("failed to update account: %w", err)
 		}
 	}
-	
+
 	if creditCardID != nil {
 		card, err := uc.creditCardRepo.FindByID(ctx, *creditCardID)
 		if err != nil {
 			return nil, fmt.Errorf("credit card not found: %w", err)
 		}
-		
+
 		if transactionType == entity.TransactionTypeDebit {
 			if err := card.Charge(money); err != nil {
 				return nil, fmt.Errorf("failed to charge credit card: %w", err)
@@ -83,22 +101,30 @@ func (uc *TransactionUseCase) CreateTransaction(
 				return nil, fmt.Errorf("failed to apply payment to card: %w", err)
 			}
 		}
-		
+
 		if err := uc.creditCardRepo.Update(ctx, card); err != nil {
 			return nil, fmt.Errorf("failed to update credit card: %w", err)
 		}
+
+		// Handle invoice assignment if invoice repository is available
+		if uc.creditCardInvoiceRepo != nil {
+			if err := uc.assignToInvoice(ctx, transaction, *creditCardID, transactionType == entity.TransactionTypeCredit); err != nil {
+				// Log warning but don't fail the transaction
+				fmt.Printf("Warning: failed to assign to invoice: %v\n", err)
+			}
+		}
 	}
-	
+
 	// Auto-assign to bills if applicable
 	if err := uc.autoAssignToBills(ctx, transaction); err != nil {
 		// Log warning but don't fail the transaction
 		fmt.Printf("Warning: failed to auto-assign to bills: %v\n", err)
 	}
-	
+
 	if err := uc.transactionRepo.Create(ctx, transaction); err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
-	
+
 	return transaction, nil
 }
 
@@ -123,11 +149,11 @@ func (uc *TransactionUseCase) SplitTransactionEqually(ctx context.Context, trans
 	if err != nil {
 		return err
 	}
-	
+
 	if err := transaction.SplitEqually(personIDs); err != nil {
 		return err
 	}
-	
+
 	return uc.transactionRepo.Update(ctx, transaction)
 }
 
@@ -136,11 +162,11 @@ func (uc *TransactionUseCase) AddSharedExpense(ctx context.Context, transactionI
 	if err != nil {
 		return err
 	}
-	
+
 	if err := transaction.AddSharedExpense(personID, percentage); err != nil {
 		return err
 	}
-	
+
 	return uc.transactionRepo.Update(ctx, transaction)
 }
 
@@ -150,7 +176,7 @@ func (uc *TransactionUseCase) autoAssignToBills(ctx context.Context, transaction
 	if err != nil {
 		return err
 	}
-	
+
 	// Find the most appropriate bill (e.g., shortest date range)
 	var selectedBill *entity.Bill
 	for _, bill := range bills {
@@ -160,10 +186,99 @@ func (uc *TransactionUseCase) autoAssignToBills(ctx context.Context, transaction
 			}
 		}
 	}
-	
+
 	if selectedBill != nil {
 		transaction.AssignToBill(selectedBill.ID)
 	}
-	
+
 	return nil
+}
+
+func (uc *TransactionUseCase) assignToInvoice(ctx context.Context, transaction *entity.Transaction, creditCardID uuid.UUID, isPayment bool) error {
+	// Find or create the current invoice for the transaction date
+	var invoice *entity.CreditCardInvoice
+
+	// First, try to find an invoice that contains this transaction date
+	invoices, err := uc.creditCardInvoiceRepo.FindByCreditCard(ctx, creditCardID)
+	if err != nil {
+		return err
+	}
+
+	// Find the invoice that contains this transaction date
+	for _, inv := range invoices {
+		if inv.ContainsDate(transaction.Date) {
+			invoice = inv
+			break
+		}
+	}
+
+	// If no invoice found, try to get the open invoice
+	if invoice == nil {
+		openInvoice, err := uc.creditCardInvoiceRepo.FindOpenInvoice(ctx, creditCardID)
+		if err == nil && openInvoice != nil {
+			invoice = openInvoice
+		}
+	}
+
+	// If still no invoice, create one for the current month
+	if invoice == nil {
+		// Get credit card to access due day
+		card, err := uc.creditCardRepo.FindByID(ctx, creditCardID)
+		if err != nil {
+			return fmt.Errorf("failed to get credit card for invoice creation: %w", err)
+		}
+
+		// Calculate invoice dates based on transaction date
+		year, month := transaction.Date.Year(), transaction.Date.Month()
+		referenceMonth := fmt.Sprintf("%04d-%02d", year, month)
+
+		openingDate := time.Date(year, month, 1, 0, 0, 0, 0, transaction.Date.Location())
+		closingDate := time.Date(year, month+1, 1, 0, 0, 0, 0, transaction.Date.Location()).AddDate(0, 0, -1)
+		dueDate := time.Date(year, month+1, card.DueDay, 0, 0, 0, 0, transaction.Date.Location())
+
+		// Get previous balance from the most recent closed invoice
+		previousBalance := valueobject.NewMoney(0, card.CreditLimit.Currency())
+		for _, inv := range invoices {
+			if inv.IsClosed() && inv.ReferenceMonth < referenceMonth {
+				previousBalance = inv.ClosingBalance
+				break
+			}
+		}
+
+		newInvoice, err := entity.NewCreditCardInvoice(creditCardID, referenceMonth, openingDate, closingDate, dueDate, previousBalance)
+		if err != nil {
+			return fmt.Errorf("failed to create invoice: %w", err)
+		}
+
+		if err := uc.creditCardInvoiceRepo.Create(ctx, newInvoice); err != nil {
+			return fmt.Errorf("failed to save invoice: %w", err)
+		}
+
+		invoice = newInvoice
+	}
+
+	// Check if invoice is open
+	if !invoice.IsOpen() {
+		return fmt.Errorf("cannot add transaction to closed invoice")
+	}
+
+	// Add transaction to invoice
+	if err := invoice.AddTransaction(transaction.ID, transaction.Amount, isPayment); err != nil {
+		return err
+	}
+
+	// Update invoice
+	if err := uc.creditCardInvoiceRepo.Update(ctx, invoice); err != nil {
+		return fmt.Errorf("failed to update invoice: %w", err)
+	}
+
+	// Update transaction with invoice ID
+	transaction.AssignToCreditCardInvoice(invoice.ID)
+
+	return nil
+}
+
+// GetTransactionsByCreditCardInvoice returns all transactions for a specific invoice
+func (uc *TransactionUseCase) GetTransactionsByCreditCardInvoice(ctx context.Context, invoiceID uuid.UUID) ([]*entity.Transaction, error) {
+	return uc.transactionRepo.FindByCreditCardInvoiceID(ctx, invoiceID)
 }
